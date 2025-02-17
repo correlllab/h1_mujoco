@@ -2,11 +2,16 @@ import time
 import mujoco
 import mujoco.viewer
 
-# initialize
+from mujoco_interface import MujocoInterface
+
+# initialize robot model
 model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_terrain.xml')
 data = mujoco.MjData(model)
+# initialize elastic band
+mujoco_interface = MujocoInterface(model, data)
+mujoco_interface.init_elastic_band()
 
-with mujoco.viewer.launch_passive(model, data) as viewer:
+with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key_callback) as viewer:
     # set camera position
     viewer.cam.azimuth = 88.650
     viewer.cam.distance = 5.269
@@ -23,6 +28,8 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         # record frame start time
         step_start = time.time()
 
+        # evaluate elastic band
+        mujoco_interface.eval_band()
         # step the simulator
         mujoco.mj_step(model, data)
         # sync user input
