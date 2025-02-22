@@ -16,7 +16,6 @@ class MujocoInterface:
         # attach band to model
         self.band_attached_link = self.model.body('torso_link').id
 
-
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
         # toggle elastic band
@@ -36,6 +35,11 @@ class MujocoInterface:
             f = self.elastic_band.evalute_force(x, v)
             # apply force to the band-attached link
             self.data.xfrc_applied[self.band_attached_link, :3] = f
+
+    def eval_fix(self):
+        # fix a joint
+        self.data.qpos[:3] = [0, 0, 1.1]
+        self.data.qvel[:6] = 0
 
 class ElasticBand:
     def __init__(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):

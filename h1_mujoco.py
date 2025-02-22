@@ -9,7 +9,7 @@ model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_terrain.xml')
 data = mujoco.MjData(model)
 # initialize elastic band
 mujoco_interface = MujocoInterface(model, data)
-mujoco_interface.init_elastic_band()
+# mujoco_interface.init_elastic_band()
 
 with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key_callback) as viewer:
     # set camera position
@@ -29,7 +29,8 @@ with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key
         step_start = time.time()
 
         # evaluate elastic band
-        mujoco_interface.eval_band()
+        # mujoco_interface.eval_band()
+        mujoco_interface.eval_fix()
         # step the simulator
         mujoco.mj_step(model, data)
         # sync user input
