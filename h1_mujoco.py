@@ -3,12 +3,16 @@ import mujoco
 import mujoco.viewer
 
 from mujoco_interface import MujocoInterface
+from unitree_sdk_interface import UnitreeSDKInterface
 
 # initialize robot model
-model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_terrain.xml')
+# model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene.xml')
+model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_pelvis_fixed.xml')
 data = mujoco.MjData(model)
-# initialize elastic band
+# initialize mujoco interface
 mujoco_interface = MujocoInterface(model, data)
+sdk_interface = UnitreeSDKInterface(model, data)
+# initialize elastic band
 # mujoco_interface.init_elastic_band()
 
 with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key_callback) as viewer:
@@ -30,7 +34,7 @@ with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key
 
         # evaluate elastic band
         # mujoco_interface.eval_band()
-        mujoco_interface.eval_fix()
+
         # step the simulator
         mujoco.mj_step(model, data)
         # sync user input
