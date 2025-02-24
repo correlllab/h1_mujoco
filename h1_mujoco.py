@@ -3,6 +3,8 @@ import mujoco
 import mujoco.viewer
 
 from mujoco_interface import MujocoInterface
+
+from unitree_sdk2py.core.channel import ChannelFactoryInitialize
 from unitree_sdk_interface import UnitreeSDKInterface
 
 # initialize robot model
@@ -11,9 +13,12 @@ model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_pelvis_fixed.xml')
 data = mujoco.MjData(model)
 # initialize mujoco interface
 mujoco_interface = MujocoInterface(model, data)
-sdk_interface = UnitreeSDKInterface(model, data)
 # initialize elastic band
 # mujoco_interface.init_elastic_band()
+
+# initialize sdk
+ChannelFactoryInitialize(id=0, networkInterface='lo')
+sdk_interface = UnitreeSDKInterface(model, data)
 
 with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key_callback) as viewer:
     # set camera position
