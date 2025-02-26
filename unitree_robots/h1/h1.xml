@@ -151,6 +151,7 @@
                 <joint name="left_elbow_joint" axis="0 1 0" range="-1.25 2.61"/>
                 <geom class="visual" mesh="left_elbow_link_ball_hand"/>
                 <geom class="collision" mesh="left_elbow_link_ball_hand"/>
+                <site name="left_wrist" pos="0.2605 0 -0.0185"/>
               </body>
             </body>
           </body>
@@ -211,7 +212,7 @@
 
     <motor class="h1" name="left_ankle_joint" joint="left_ankle_joint" ctrlrange="-40 40"/>
     <motor class="h1" name="right_ankle_joint" joint="right_ankle_joint" ctrlrange="-40 40"/>
-    
+
     <motor class="h1" name="right_shoulder_pitch_joint" joint="right_shoulder_pitch_joint" ctrlrange="-40 40"/>
     <motor class="h1" name="right_shoulder_roll_joint" joint="right_shoulder_roll_joint" ctrlrange="-40 40"/>
     <motor class="h1" name="right_shoulder_yaw_joint" joint="right_shoulder_yaw_joint" ctrlrange="-18 18"/>
@@ -268,7 +269,7 @@
 
     <jointactuatorfrc name="right_hip_roll_torque" joint="right_hip_roll_joint"/>
     <jointactuatorfrc name="right_hip_pitch_torque" joint="right_hip_pitch_joint"/>
-    <jointactuatorfrc name="right_knee_torque" joint="right_knee_joint"/> 
+    <jointactuatorfrc name="right_knee_torque" joint="right_knee_joint"/>
     <jointactuatorfrc name="left_hip_roll_torque" joint="left_hip_roll_joint"/>
     <jointactuatorfrc name="left_hip_pitch_torque" joint="left_hip_pitch_joint"/>
     <jointactuatorfrc name="left_knee_torque" joint="left_knee_joint"/>
@@ -290,7 +291,7 @@
     <framequat name="imu_quat" objtype="site" objname="imu" />
     <gyro name="imu_gyro" site="imu" />
     <accelerometer name="imu_acc" site="imu" />
-    
+
     <framepos name="frame_pos" objtype="site" objname="imu" />
     <framelinvel name="frame_vel" objtype="site" objname="imu" />
   </sensor>
