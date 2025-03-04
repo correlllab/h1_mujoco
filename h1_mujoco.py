@@ -1,14 +1,13 @@
 import time
 import mujoco
 import mujoco.viewer
+import numpy as np
 
 from mink_interface import MinkInterface
 from mujoco_interface import MujocoInterface
 
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
 from unitree_sdk_interface import UnitreeSDKInterface
-
-import mink
 
 # initialize robot model
 model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_with_target.xml')
@@ -17,10 +16,13 @@ model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_with_target.xml')
 # initialize mink interface
 mink_interface = MinkInterface()
 model, data = mink_interface.init_model(model)
+# initialize task and set target position
 mink_interface.init_task('left_wrist', 'site')
+mink_interface.set_target(np.array([0.7, 0.1, 1.5]))
 
 # initialize mujoco interface
 mujoco_interface = MujocoInterface(model, data)
+mujoco_interface.link_mink(mink_interface)
 # initialize elastic band
 # mujoco_interface.init_elastic_band()
 
@@ -37,9 +39,6 @@ with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key
 
     # set simulation parameters
     model.opt.timestep = 0.005
-
-    # move hand to initial position
-    # mink.move_mocap_to_frame(model, data, f'{hand}_target', hand, 'site')
 
     # main simulation loop
     while viewer.is_running():

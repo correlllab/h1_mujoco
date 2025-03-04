@@ -8,6 +8,7 @@ class MujocoInterface:
         self.data = data
         self.elastic_band = None
         self.band_enabled = None
+        self.mink_interface = None
 
     def init_elastic_band(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
         # initialize member variables
@@ -15,6 +16,9 @@ class MujocoInterface:
         self.band_enabled = True
         # attach band to model
         self.band_attached_link = self.model.body('torso_link').id
+
+    def link_mink(self, mink_interface):
+        self.mink_interface = mink_interface
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
@@ -25,6 +29,9 @@ class MujocoInterface:
         # handle input if elastic band is enabled
         if self.band_enabled:
             self.elastic_band.key_callback(key)
+        # handle input if we have link a mink IK solver
+        if self.mink_interface is not None:
+            self.mink_interface.key_callback(key)
 
     def eval_band(self):
         if self.elastic_band is not None and self.band_enabled:

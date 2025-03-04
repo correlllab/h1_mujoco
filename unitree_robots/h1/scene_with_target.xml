@@ -18,12 +18,12 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
-    <body name="left_wrist_target" pos="0.7 0.1 1.5" quat="0 1 0 0" mocap="true">
+    <body name="target" pos="0 0 0" quat="0 1 0 0" mocap="true">
       <geom type="sphere" size=".06" contype="0" conaffinity="0" rgba=".6 .3 .3 .2"/>
       <site type="sphere" size="0.01" rgba="0 0 1 1" group="1"/>
     </body>
   </worldbody>
-    <equality>
-        <weld body1="pelvis" body2="world" />
-    </equality>
+  <equality>
+      <weld body1="pelvis" body2="world" />
+  </equality>
 </mujoco>
