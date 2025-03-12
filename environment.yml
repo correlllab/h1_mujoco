@@ -1,0 +1,27 @@
+name: sim_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  # common libs
+  - tqdm
+  - numpy<2
+  - matplotlib
+  # graphic libs
+  - meshio
+  - trimesh
+  - opencv
+  - shapely
+  - pyvista
+  - pyquaternion
+  # sims
+  - mujoco
+  - pygame
+  - pymunk
+  - gym
+  - gymnasium
+  # aux
+  - imageio
+  - imageio-ffmpeg
+  - scikit-image
+  - scikit-video
