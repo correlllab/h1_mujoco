@@ -1,7 +1,7 @@
 import mujoco
 
 # initialize robot model
-model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene.xml')
+model = mujoco.MjModel.from_xml_path('unitree_robots/h1_2/scene.xml')
 data = mujoco.MjData(model)
 
 # iterate through bodies
