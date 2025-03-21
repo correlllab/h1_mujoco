@@ -36,16 +36,14 @@ class MinkInterface:
         # update task target
         self.task.set_target(mink.SE3.from_translation(position))
 
-    def solve_IK(self, damping=0.1):
+    def solve_IK(self, link_mask, damping=0.1):
         if not self.model_init or not self.task_init:
             print('Model or task not initialized')
 
         # set target position
         vel = mink.solve_ik(self.configuration, [self.task], self.model.opt.timestep, self.solver, damping)
-        vel[0:14] = 0
-        vel[33:] = 0
-        # vel[25] = 0
-        self.configuration.integrate_inplace(vel, self.model.opt.timestep)
+        vel_masked = [vel[i] if i in link_mask else 0.0 for i in range(vel.shape[0])]
+        self.configuration.integrate_inplace(vel_masked, self.model.opt.timestep)
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw

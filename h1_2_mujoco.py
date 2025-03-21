@@ -19,6 +19,7 @@ model, data = mink_interface.init_model(model)
 # initialize task and set target position
 mink_interface.init_task('left_wrist', 'site')
 mink_interface.set_target(np.array([0.7, 0.1, 1.5]))
+enabled_link_mask = [i for i in range(18, 38)]
 
 # initialize mujoco interface
 mujoco_interface = MujocoInterface(model, data)
@@ -48,10 +49,10 @@ with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key
         # evaluate elastic band
         # mujoco_interface.eval_band()
 
-        # step the simulator
-        mujoco.mj_step(model, data)
+        # # step the simulator
+        # mujoco.mj_step(model, data)
         # solve IK
-        mink_interface.solve_IK()
+        mink_interface.solve_IK(enabled_link_mask)
 
         # sync user input
         viewer.sync()

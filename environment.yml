@@ -25,3 +25,7 @@ dependencies:
   - imageio-ffmpeg
   - scikit-image
   - scikit-video
+  # pip
+  - pip
+  - pip:
+    - mink
