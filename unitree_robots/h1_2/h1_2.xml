@@ -168,6 +168,7 @@
                   <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="left_elbow_roll_link"/>
                   <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="left_elbow_roll_link"/>
                   <body name="left_wrist_pitch_link" pos="0.085 0 0">
+                    <site name="left_wrist" pos="0 0 0"/>
                     <inertial pos="0.020395 3.6e-05 -0.002973" quat="0.915893 -0.228405 -0.327262 -0.0432527" mass="0.484" diaginertia="7.25675e-05 7.00325e-05 6.9381e-05"/>
                     <joint name="left_wrist_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.47 0.47" actuatorfrcrange="-19 19"/>
                     <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="left_wrist_pitch_link"/>

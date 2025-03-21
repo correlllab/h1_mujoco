@@ -27,7 +27,6 @@ class MinkInterface:
             orientation_cost=orientation_cost,
             lm_damping=lm_damping
         )
-        return self.task
 
     def set_target(self, position):
         assert(position.shape == (3,))
@@ -43,8 +42,9 @@ class MinkInterface:
 
         # set target position
         vel = mink.solve_ik(self.configuration, [self.task], self.model.opt.timestep, self.solver, damping)
-        vel[0:16] = 0
-        vel[25] = 0
+        vel[0:14] = 0
+        vel[33:] = 0
+        # vel[25] = 0
         self.configuration.integrate_inplace(vel, self.model.opt.timestep)
 
     def key_callback(self, key):

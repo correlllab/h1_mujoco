@@ -1,7 +1,5 @@
-
-
 <mujoco model="Unitree H1 With Target">
-  <include file="h1.xml" />
+  <include file="h1_2.xml" />
   <statistic center="1 0.7 1.5" extent="0.8" />
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
