@@ -7,7 +7,7 @@ from mink_interface import MinkInterface
 from mujoco_interface import MujocoInterface
 
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
-from unitree_sdk_interface import UnitreeSDKInterface
+from unitree_h1_interface import UnitreeSDKInterface
 
 # initialize robot model
 model = mujoco.MjModel.from_xml_path('unitree_robots/h1/scene_with_target.xml')

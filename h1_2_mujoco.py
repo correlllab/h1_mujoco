@@ -7,7 +7,7 @@ from mink_interface import MinkInterface
 from mujoco_interface import MujocoInterface
 
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize
-from unitree_sdk_interface import UnitreeSDKInterface
+from unitree_h1_2_interface import UnitreeSDKInterface
 
 # initialize robot model
 model = mujoco.MjModel.from_xml_path('unitree_robots/h1_2/scene_with_target.xml')
@@ -19,7 +19,7 @@ model, data = mink_interface.init_model(model)
 # initialize task and set target position
 mink_interface.init_task('left_wrist', 'site')
 mink_interface.set_target(np.array([0.7, 0.1, 1.5]))
-enabled_link_mask = [i for i in range(18, 38)]
+enabled_link_mask = [i for i in range(18, 26)]
 
 # initialize mujoco interface
 mujoco_interface = MujocoInterface(model, data)
@@ -28,8 +28,8 @@ mujoco_interface.link_mink(mink_interface)
 # mujoco_interface.init_elastic_band()
 
 # initialize sdk
-# ChannelFactoryInitialize(id=0, networkInterface='lo')
-# sdk_interface = UnitreeSDKInterface(model, data)
+ChannelFactoryInitialize(id=0, networkInterface='lo')
+sdk_interface = UnitreeSDKInterface(model, data)
 
 with mujoco.viewer.launch_passive(model, data, key_callback=mujoco_interface.key_callback) as viewer:
     # set camera position

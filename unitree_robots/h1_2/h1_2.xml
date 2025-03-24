@@ -1,6 +1,11 @@
-<mujoco model="h1_5">
+<mujoco model="h1_2">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
   <statistic meansize="0.112107" extent="1.95557" center="0.0256948 1.86841e-05 -0.178443"/>
+
+  <default>
+      <joint damping="1"/>
+  </default>
+
   <asset>
     <mesh name="pelvis" file="pelvis.STL"/>
     <mesh name="left_hip_yaw_link" file="left_hip_yaw_link.STL"/>
