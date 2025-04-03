@@ -2,14 +2,12 @@ import time
 import numpy as np
 
 from mujoco_env import MujocoEnv
-from unitree_sdk2py.core.channel import ChannelFactoryInitialize
-from unitree_h1_2_interface import UnitreeSDKInterface
+from unitree_h1_2_interface import SimInterface
 
 # initialize mujoco environment
 mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_with_target.xml')
 # initialize sdk interface
-ChannelFactoryInitialize(id=0, networkInterface='lo')
-sdk_interface = UnitreeSDKInterface(mujoco_env.model, mujoco_env.data)
+sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
 # set IK task
 mujoco_env.set_ik_task(

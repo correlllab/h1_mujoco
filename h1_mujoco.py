@@ -2,14 +2,12 @@ import time
 import numpy as np
 
 from mujoco_env import MujocoEnv
-from unitree_sdk2py.core.channel import ChannelFactoryInitialize
-from unitree_h1_interface import UnitreeSDKInterface
+from unitree_h1_interface import SimInterface
 
 # initialize mujoco environment
 mujoco_env = MujocoEnv('unitree_robots/h1/scene_with_target.xml')
 # initialize sdk interface
-ChannelFactoryInitialize(id=0, networkInterface='lo')
-sdk_interface = UnitreeSDKInterface(mujoco_env.model, mujoco_env.data)
+sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
 # set IK task
 mujoco_env.set_ik_task(
@@ -25,7 +23,7 @@ while mujoco_env.viewer.is_running():
     # record frame start time
     step_start = time.time()
 
-    mujoco_env.ik_step()
+    mujoco_env.sim_step()
 
     # ensure correct time stepping
     time_until_next_step = mujoco_env.timestep - (time.time() - step_start)

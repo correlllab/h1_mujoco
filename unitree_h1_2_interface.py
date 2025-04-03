@@ -1,7 +1,7 @@
 import mujoco
 import numpy as np
 
-from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelPublisher
+from unitree_sdk2py.core.channel import ChannelFactoryInitialize, ChannelSubscriber, ChannelPublisher
 
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
@@ -17,7 +17,7 @@ TOPIC_HIGHSTATE = 'rt/sportmodestate'
 
 MOTOR_SENSOR_NUM = 3
 
-class UnitreeSDKInterface:
+class SimInterface:
     def __init__(self, model, data):
         # record mujoco model & data
         self.model = model
@@ -40,6 +40,8 @@ class UnitreeSDKInterface:
             if name == 'frame_pos':
                 self.have_frame_sensor = True
 
+        # initialize channel
+        ChannelFactoryInitialize(id=0, networkInterface='lo')
         # publish low state
         self.low_state = LowState_default()
         self.low_state_puber = ChannelPublisher(TOPIC_LOWSTATE, LowState_)
