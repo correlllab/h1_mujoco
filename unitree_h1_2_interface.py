@@ -152,3 +152,59 @@ class SimInterface:
                         - self.data.sensordata[i + self.num_motor]
                     )
                 )
+
+class ShadowInterface():
+    def __init__(self, model, data):
+        # record mujoco model & data
+        self.model = model
+        self.data = data
+
+        # initialize state parameters
+        self.num_motor = self.model.nu
+        self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
+        self.dt = self.model.opt.timestep
+
+        # check sensor
+        self.have_imu = False
+        self.have_frame_sensor = False
+        for i in range(self.dim_motor_sensor, self.model.nsensor):
+            name = mujoco.mj_id2name(
+                self.model, mujoco._enums.mjtObj.mjOBJ_SENSOR, i
+            )
+            if name == 'imu_quat':
+                self.have_imu = True
+            if name == 'frame_pos':
+                self.have_frame_sensor = True
+
+        # initialize channel
+        ChannelFactoryInitialize(id=0, networkInterface='lo')
+        # subscribe low state
+        self.low_state_suber = ChannelSubscriber(TOPIC_LOWSTATE, LowState_)
+        self.low_state_suber.Init(self.SubscribeLowState, 10)
+
+    def SubscribeLowState(self, msg: LowState_):
+        if self.data is not None:
+            # # read motor state
+            # for i in range(self.num_motor):
+            #     self.data.sensordata[i] = msg.motor_state[i].q
+            #     self.data.sensordata[i + self.num_motor] = msg.motor_state[i].dq
+            #     self.data.sensordata[i + 2 * self.num_motor] = msg.motor_state[i].tau_est
+
+            # if self.have_frame_sensor:
+            #     # read IMU data
+            #     self.data.sensordata[self.dim_motor_sensor + 0] = msg.imu_state.quaternion[0]
+            #     self.data.sensordata[self.dim_motor_sensor + 1] = msg.imu_state.quaternion[1]
+            #     self.data.sensordata[self.dim_motor_sensor + 2] = msg.imu_state.quaternion[2]
+            #     self.data.sensordata[self.dim_motor_sensor + 3] = msg.imu_state.quaternion[3]
+            #     # read gyroscope data
+            #     self.data.sensordata[self.dim_motor_sensor + 4] = msg.imu_state.gyroscope[0]
+            #     self.data.sensordata[self.dim_motor_sensor + 5] = msg.imu_state.gyroscope[1]
+            #     self.data.sensordata[self.dim_motor_sensor + 6] = msg.imu_state.gyroscope[2]
+            #     # read accelerometer data
+            #     self.data.sensordata[self.dim_motor_sensor + 7] = msg.imu_state.accelerometer[0]
+            #     self.data.sensordata[self.dim_motor_sensor + 8] = msg.imu_state.accelerometer[1]
+            #     self.data.sensordata[self.dim_motor_sensor + 9] = msg.imu_state.accelerometer[2]
+            for i in range(self.num_motor):
+                self.data.qpos[i] = msg.motor_state[i].q
+                self.data.qvel[i] = msg.motor_state[i].dq
+                self.data.qfrc_applied[i] = msg.motor_state[i].tau_est
