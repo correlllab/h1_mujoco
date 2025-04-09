@@ -12,7 +12,7 @@ def sim_loop():
     Subscribing to low command.
     '''
     # initialize mujoco environment
-    mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_with_target.xml')
+    mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_pelvis_fixed.xml')
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
@@ -36,7 +36,7 @@ def shadow_loop():
     Subscribing to low state to overwrite mujoco state.
     '''
     # initialize mujoco environment
-    mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_with_target.xml')
+    mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_pelvis_fixed.xml')
     # initialize sdk interface
     shadow_interface = ShadowInterface(mujoco_env.model, mujoco_env.data)
 
