@@ -78,3 +78,33 @@ class MujocoEnv:
         Get the joint torque.
         '''
         return np.array(self.data.ctrl)
+
+    def get_body_wrench(self, body_id, joint_torque=None):
+        '''
+        Get the body torque in world frame.
+        '''
+        if joint_torque is None:
+            joint_torque = np.zeros(self.model.nv)
+            joint_torque[0:27] = self.get_joint_torque()
+        # get positional and rotational jacobian
+        jac_pos, jac_rot = self.get_body_jacobian(body_id)
+        # compute force in world frame
+        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
+        world_torque = np.linalg.inv(jac_rot @ jac_rot.T) @ jac_rot @ joint_torque
+
+        return world_force, world_torque
+
+    def get_site_wrench(self, body_id, joint_torque=None):
+        '''
+        Get the body torque in world frame.
+        '''
+        if joint_torque is None:
+            joint_torque = np.zeros(self.model.nv)
+            joint_torque[0:27] = self.get_joint_torque()
+        # get positional and rotational jacobian
+        jac_pos, jac_rot = self.get_site_jacobian(body_id)
+        # compute force & torque in world frame
+        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
+        world_torque = np.linalg.inv(jac_rot @ jac_rot.T) @ jac_rot @ joint_torque
+
+        return world_force, world_torque

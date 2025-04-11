@@ -25,13 +25,10 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
-        # compute force in world frame
-        jac_pos, jac_rot = mujoco_env.get_body_jacobian(mujoco_env.model.body('L_index_proximal').id)
-        joint_torque = np.zeros(mujoco_env.model.nv)
-        joint_torque[0:27] = mujoco_env.get_joint_torque()
-
-        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
-        print(world_force)
+        # print body wrench in world frame
+        body_id = mujoco_env.model.body('L_index_proximal').id
+        force, torque = mujoco_env.get_body_wrench(body_id)
+        print(f'Force: {force}, Torque: {torque}')
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
@@ -57,13 +54,14 @@ def shadow_loop():
 
         mujoco_env.sim_step()
 
-        # compute force in world frame
-        jac_pos, jac_rot = mujoco_env.get_body_jacobian(mujoco_env.model.body('L_index_proximal').id)
+        # print body wrench in world frame
+        body_id = mujoco_env.model.body('L_index_proximal').id
+        # get torque from tau_est
         joint_torque = np.zeros(mujoco_env.model.nv)
         joint_torque[0:27] = shadow_interface.get_joint_torque()
-
-        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
-        print(world_force)
+        # get wrench
+        force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
+        print(f'Force: {force}, Torque: {torque}')
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
