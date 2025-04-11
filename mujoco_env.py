@@ -50,3 +50,31 @@ class MujocoEnv:
         self.mink_interface.solve_IK(self.enabled_link_mask)
         # sync user input
         self.viewer.sync()
+
+    def get_body_jacobian(self, body_id):
+        '''
+        Get the Jacobian of a given body.
+        Return 3xN positional jacobian and 3xN rotational jacobian.
+        '''
+        jac_pos = np.zeros((3, self.model.nv))
+        jac_rot = np.zeros((3, self.model.nv))
+        mujoco.mj_jacBody(self.model, self.data, jac_pos, jac_rot, body_id)
+        # jac_pos is 3xN positional jacobian, jac_rot is 3xN rotational jacobian
+        return jac_pos, jac_rot
+
+    def get_site_jacobian(self, site_id):
+        '''
+        Get the Jacobian of a given site.
+        Return 3xN positional jacobian and 3xN rotational jacobian.
+        '''
+        jac_pos = np.zeros((3, self.model.nv))
+        jac_rot = np.zeros((3, self.model.nv))
+        mujoco.mj_jacSite(self.model, self.data, jac_pos, jac_rot, site_id)
+        # jac_pos is 3xN positional jacobian, jac_rot is 3xN rotational jacobian
+        return jac_pos, jac_rot
+
+    def get_joint_torque(self):
+        '''
+        Get the joint torque.
+        '''
+        return np.array(self.data.ctrl)

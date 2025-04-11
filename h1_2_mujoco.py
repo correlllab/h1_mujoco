@@ -25,6 +25,14 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
+        # compute force in world frame
+        jac_pos, jac_rot = mujoco_env.get_body_jacobian(mujoco_env.model.body('L_index_proximal').id)
+        joint_torque = np.zeros(mujoco_env.model.nv)
+        joint_torque[0:27] = mujoco_env.get_joint_torque()
+
+        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
+        print(world_force)
+
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
         if time_until_next_step > 0:
@@ -48,6 +56,14 @@ def shadow_loop():
         step_start = time.time()
 
         mujoco_env.sim_step()
+
+        # compute force in world frame
+        jac_pos, jac_rot = mujoco_env.get_body_jacobian(mujoco_env.model.body('L_index_proximal').id)
+        joint_torque = np.zeros(mujoco_env.model.nv)
+        joint_torque[0:27] = shadow_interface.get_joint_torque()
+
+        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
+        print(world_force)
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)

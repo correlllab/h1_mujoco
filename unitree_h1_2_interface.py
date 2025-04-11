@@ -42,6 +42,7 @@ class SimInterface:
 
         # initialize channel
         ChannelFactoryInitialize(id=0)
+        # ChannelFactoryInitialize(id=0, networkInterface='lo')
         # publish low state
         self.low_state = LowState_default()
         self.low_state_puber = ChannelPublisher(TOPIC_LOWSTATE, LowState_)
@@ -181,9 +182,13 @@ class ShadowInterface():
         self.low_state_suber = ChannelSubscriber(TOPIC_LOWSTATE, LowState_)
         self.low_state_suber.Init(self.SubscribeLowState, 10)
 
+        # variable tracking states
+        self.joint_torque = np.zeros(self.num_motor)
+
     def SubscribeLowState(self, msg: LowState_):
         if self.data is not None:
             for i in range(self.num_motor):
+                self.joint_torque[i] = msg.motor_state[i].tau_est
                 self.data.ctrl[i] = (
                     msg.motor_state[i].tau_est
                     + 140.0
@@ -194,3 +199,9 @@ class ShadowInterface():
                         - self.data.sensordata[i + self.num_motor]
                     )
                 )
+
+    def get_joint_torque(self):
+        '''
+        Get the joint torque.
+        '''
+        return self.joint_torque
