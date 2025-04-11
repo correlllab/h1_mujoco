@@ -20,6 +20,7 @@ dependencies:
   - pymunk
   - gym
   - gymnasium
+  - robot_descriptions
   # aux
   - imageio
   - imageio-ffmpeg
