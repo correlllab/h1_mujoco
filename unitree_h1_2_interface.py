@@ -183,12 +183,12 @@ class ShadowInterface():
         self.low_state_suber.Init(self.SubscribeLowState, 10)
 
         # variable tracking states
-        self.joint_torque = np.zeros(self.num_motor)
+        self.motor_torque = np.zeros(self.num_motor)
 
     def SubscribeLowState(self, msg: LowState_):
         if self.data is not None:
             for i in range(self.num_motor):
-                self.joint_torque[i] = msg.motor_state[i].tau_est
+                self.motor_torque[i] = msg.motor_state[i].tau_est
                 self.data.ctrl[i] = (
                     msg.motor_state[i].tau_est
                     + 140.0
@@ -200,8 +200,8 @@ class ShadowInterface():
                     )
                 )
 
-    def get_joint_torque(self):
+    def get_motor_torque(self):
         '''
-        Get the joint torque.
+        Get the mortor torque.
         '''
-        return self.joint_torque
+        return self.motor_torque

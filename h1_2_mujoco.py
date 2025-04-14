@@ -118,7 +118,9 @@ def shadow_loop():
         body_id = mujoco_env.model.body('left_wrist_yaw_link').id
         # get torque from tau_est
         joint_torque = np.zeros(mujoco_env.model.nv)
-        joint_torque[0:27] = shadow_interface.get_joint_torque()
+        motor_torque = shadow_interface.get_motor_torque()
+        joint_torque[7:27] = motor_torque[0:20]
+        joint_torque[39:46] = motor_torque[20:27]
         # get wrench
         force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
         print(f'Force: {force}, Torque: {torque}')
