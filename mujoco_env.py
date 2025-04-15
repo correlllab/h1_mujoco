@@ -86,13 +86,15 @@ class MujocoEnv:
         if joint_torque is None:
             joint_torque = np.zeros(self.model.nv)
             motor_torque = self.get_motor_torque()
-            joint_torque[7:27] = motor_torque[0:20]
-            joint_torque[39:46] = motor_torque[20:27]
+            joint_torque[6:26] = motor_torque[0:20]
+            joint_torque[38:45] = motor_torque[20:27]
         # get positional and rotational jacobian
         jac_pos, jac_rot = self.get_body_jacobian(body_id)
         # compute force in world frame
-        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
-        world_torque = np.linalg.inv(jac_rot @ jac_rot.T) @ jac_rot @ joint_torque
+        jac = np.vstack((jac_pos, jac_rot))
+        world_wrench = np.linalg.inv(jac @ jac.T) @ jac @ joint_torque
+        world_force = world_wrench[:3]
+        world_torque = world_wrench[3:]
 
         return world_force, world_torque
 
@@ -102,7 +104,9 @@ class MujocoEnv:
         '''
         if joint_torque is None:
             joint_torque = np.zeros(self.model.nv)
-            joint_torque[0:27] = self.get_joint_torque()
+            motor_torque = self.get_motor_torque()
+            joint_torque[7:27] = motor_torque[0:20]
+            joint_torque[39:46] = motor_torque[20:27]
         # get positional and rotational jacobian
         jac_pos, jac_rot = self.get_site_jacobian(body_id)
         # compute force & torque in world frame

@@ -30,11 +30,13 @@ def sim_loop():
     pl = pv.Plotter()
     pl.add_axes()
     pl.show(interactive_update=True)
-    body_name = 'torso_link'
+    # define body name & id
+    body_name = 'left_wrist_pitch_link'
+    body_id = mujoco_env.model.body(body_name).id
     # add meshes to pyvista
     for i in range(mujoco_env.model.nbody):
         if body_meshes[i] is not None:
-            color = 'red' if i == mujoco_env.model.body(body_name).id else 'lightblue'
+            color = 'red' if i == body_id else 'lightblue'
             pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
     # add visualization arrow
     arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
@@ -49,8 +51,6 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
-        # print body wrench in world frame
-        body_id = mujoco_env.model.body(body_name).id
         # get wrench
         force, torque = mujoco_env.get_body_wrench(body_id)
         print(f'Force: {force}, Torque: {torque}')
@@ -64,7 +64,7 @@ def sim_loop():
                 body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
         # update arrow transform
         position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        new_arrow = pv.Arrow(start=position, direction=force / np.linalg.norm(force, ord=2), scale=0.1 * np.linalg.norm(force, ord=2))
+        new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
         actor.mapper.SetInputData(new_arrow)
         actor.mapper.update()
         pl.update()
@@ -96,10 +96,13 @@ def shadow_loop():
     pl = pv.Plotter()
     pl.add_axes()
     pl.show(interactive_update=True)
+    # define body name & id
+    body_name = 'left_wrist_pitch_link'
+    body_id = mujoco_env.model.body(body_name).id
     # add meshes to pyvista
     for i in range(mujoco_env.model.nbody):
         if body_meshes[i] is not None:
-            color = 'red' if i == mujoco_env.model.body('left_wrist_yaw_link').id else 'lightblue'
+            color = 'red' if i == body_id else 'lightblue'
             pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
     # add visualization arrow
     arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
@@ -114,13 +117,11 @@ def shadow_loop():
 
         mujoco_env.sim_step()
 
-        # print body wrench in world frame
-        body_id = mujoco_env.model.body('left_wrist_yaw_link').id
         # get torque from tau_est
         joint_torque = np.zeros(mujoco_env.model.nv)
         motor_torque = shadow_interface.get_motor_torque()
-        joint_torque[7:27] = motor_torque[0:20]
-        joint_torque[39:46] = motor_torque[20:27]
+        joint_torque[6:26] = motor_torque[0:20]
+        joint_torque[38:45] = motor_torque[20:27]
         # get wrench
         force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
         print(f'Force: {force}, Torque: {torque}')
@@ -134,7 +135,7 @@ def shadow_loop():
                 body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
         # update arrow transform
         position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        new_arrow = pv.Arrow(start=position, direction=force, scale=0.1 * np.linalg.norm(force, ord=2))
+        new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
         actor.mapper.SetInputData(new_arrow)
         actor.mapper.update()
         pl.update()
