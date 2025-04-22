@@ -411,30 +411,30 @@
     <motor name="right_elbow_roll_joint" joint="right_elbow_roll_joint"/>
     <motor name="right_wrist_pitch_joint" joint="right_wrist_pitch_joint"/>
     <motor name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint"/>
-    <!-- <motor name="L_index_proximal_joint" joint="L_index_proximal_joint"/>
-    <motor name="L_index_intermediate_joint" joint="L_index_intermediate_joint"/>
-    <motor name="L_middle_proximal_joint" joint="L_middle_proximal_joint"/>
-    <motor name="L_middle_intermediate_joint" joint="L_middle_intermediate_joint"/>
-    <motor name="L_ring_proximal_joint" joint="L_ring_proximal_joint"/>
-    <motor name="L_ring_intermediate_joint" joint="L_ring_intermediate_joint"/>
     <motor name="L_pinky_proximal_joint" joint="L_pinky_proximal_joint"/>
     <motor name="L_pinky_intermediate_joint" joint="L_pinky_intermediate_joint"/>
-    <motor name="L_thumb_proximal_yaw_joint" joint="L_thumb_proximal_yaw_joint"/>
+    <motor name="L_ring_proximal_joint" joint="L_ring_proximal_joint"/>
+    <motor name="L_ring_intermediate_joint" joint="L_ring_intermediate_joint"/>
+    <motor name="L_middle_proximal_joint" joint="L_middle_proximal_joint"/>
+    <motor name="L_middle_intermediate_joint" joint="L_middle_intermediate_joint"/>
+    <motor name="L_index_proximal_joint" joint="L_index_proximal_joint"/>
+    <motor name="L_index_intermediate_joint" joint="L_index_intermediate_joint"/>
     <motor name="L_thumb_proximal_pitch_joint" joint="L_thumb_proximal_pitch_joint"/>
     <motor name="L_thumb_intermediate_joint" joint="L_thumb_intermediate_joint"/>
     <motor name="L_thumb_distal_joint" joint="L_thumb_distal_joint"/>
-    <motor name="R_index_proximal_joint" joint="R_index_proximal_joint"/>
-    <motor name="R_index_intermediate_joint" joint="R_index_intermediate_joint"/>
-    <motor name="R_middle_proximal_joint" joint="R_middle_proximal_joint"/>
-    <motor name="R_middle_intermediate_joint" joint="R_middle_intermediate_joint"/>
-    <motor name="R_ring_proximal_joint" joint="R_ring_proximal_joint"/>
-    <motor name="R_ring_intermediate_joint" joint="R_ring_intermediate_joint"/>
+    <motor name="L_thumb_proximal_yaw_joint" joint="L_thumb_proximal_yaw_joint"/>
     <motor name="R_pinky_proximal_joint" joint="R_pinky_proximal_joint"/>
     <motor name="R_pinky_intermediate_joint" joint="R_pinky_intermediate_joint"/>
-    <motor name="R_thumb_proximal_yaw_joint" joint="R_thumb_proximal_yaw_joint"/>
+    <motor name="R_ring_proximal_joint" joint="R_ring_proximal_joint"/>
+    <motor name="R_ring_intermediate_joint" joint="R_ring_intermediate_joint"/>
+    <motor name="R_middle_proximal_joint" joint="R_middle_proximal_joint"/>
+    <motor name="R_middle_intermediate_joint" joint="R_middle_intermediate_joint"/>
+    <motor name="R_index_proximal_joint" joint="R_index_proximal_joint"/>
+    <motor name="R_index_intermediate_joint" joint="R_index_intermediate_joint"/>
     <motor name="R_thumb_proximal_pitch_joint" joint="R_thumb_proximal_pitch_joint"/>
     <motor name="R_thumb_intermediate_joint" joint="R_thumb_intermediate_joint"/>
-    <motor name="R_thumb_distal_joint" joint="R_thumb_distal_joint"/> -->
+    <motor name="R_thumb_distal_joint" joint="R_thumb_distal_joint"/>
+    <motor name="R_thumb_proximal_yaw_joint" joint="R_thumb_proximal_yaw_joint"/>
   </actuator>
 
   <sensor>

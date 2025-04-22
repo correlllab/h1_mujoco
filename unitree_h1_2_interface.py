@@ -3,7 +3,7 @@ import numpy as np
 
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize, ChannelSubscriber, ChannelPublisher
 
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_, MotorStates_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
 from unitree_sdk2py.utils.thread import RecurrentThread
 
@@ -14,7 +14,9 @@ from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowState_ as LowState
 TOPIC_LOWCMD = 'rt/lowcmd'
 TOPIC_LOWSTATE = 'rt/lowstate'
 TOPIC_HIGHSTATE = 'rt/sportmodestate'
-
+TOPIC_HANDSTATE = 'rt/inspire/state'
+# 27 motors on main body, 3 sensors on each motor
+MOTOR_NUM = 27
 MOTOR_SENSOR_NUM = 3
 
 class SimInterface:
@@ -24,7 +26,7 @@ class SimInterface:
         self.data = data
 
         # initialize state parameters
-        self.num_motor = self.model.nu
+        self.num_motor = MOTOR_NUM
         self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
         self.dt = self.model.opt.timestep
 
@@ -161,7 +163,7 @@ class ShadowInterface():
         self.data = data
 
         # initialize state parameters
-        self.num_motor = self.model.nu
+        self.num_motor = MOTOR_NUM
         self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
 
         # check sensor
@@ -176,14 +178,17 @@ class ShadowInterface():
             if name == 'frame_pos':
                 self.have_frame_sensor = True
 
+        # variable tracking states
+        self.motor_torque = np.zeros(self.num_motor)
+
         # initialize channel
         ChannelFactoryInitialize(id=0)
         # subscribe low state
         self.low_state_suber = ChannelSubscriber(TOPIC_LOWSTATE, LowState_)
         self.low_state_suber.Init(self.SubscribeLowState, 10)
-
-        # variable tracking states
-        self.motor_torque = np.zeros(self.num_motor)
+        # subscribe hand state
+        self.hand_state_suber = ChannelSubscriber(TOPIC_HANDSTATE, MotorStates_)
+        self.hand_state_suber.Init(self.SubscribeHandState, 10)
 
     def SubscribeLowState(self, msg: LowState_):
         if self.data is not None:
@@ -191,7 +196,7 @@ class ShadowInterface():
                 self.motor_torque[i] = msg.motor_state[i].tau_est
                 self.data.ctrl[i] = (
                     msg.motor_state[i].tau_est
-                    + 140.0
+                    + 100.0
                     * (msg.motor_state[i].q - self.data.sensordata[i])
                     + 3.0
                     * (
@@ -199,6 +204,39 @@ class ShadowInterface():
                         - self.data.sensordata[i + self.num_motor]
                     )
                 )
+
+    def SubscribeHandState(self, msg: MotorStates_):
+        '''
+        Finger state
+        0: pinky
+        1: ring
+        2: middle
+        3: index
+        4: thumb
+        5: thumb open
+        '''
+        if self.data is not None:
+            # for pinky to index, 2 joints map to 1 control signal
+            for i in range(4):
+                # left hand
+                self.data.ctrl[self.num_motor + i * 2] = 1 - msg.states[i].q
+                self.data.ctrl[self.num_motor + i * 2 + 1] = 1 - msg.states[i].q
+                # right hand
+                self.data.ctrl[self.num_motor + i * 2 + 12] = 1 - msg.states[i + 6].q
+                self.data.ctrl[self.num_motor + i * 2 + 13] = 1 - msg.states[i + 6].q
+
+            # left thumb curl
+            self.data.ctrl[self.num_motor + 8] = 1 - msg.states[4].q
+            self.data.ctrl[self.num_motor + 9] = 1 - msg.states[4].q
+            self.data.ctrl[self.num_motor + 10] = 1 - msg.states[4].q
+            # left thumb open
+            self.data.ctrl[self.num_motor + 11] = msg.states[5].q
+            # right thumb curl
+            self.data.ctrl[self.num_motor + 20] = 1 - msg.states[10].q
+            self.data.ctrl[self.num_motor + 21] = 1 - msg.states[10].q
+            self.data.ctrl[self.num_motor + 22] = 1 - msg.states[10].q
+            # right thumb open
+            self.data.ctrl[self.num_motor + 23] = msg.states[11].q
 
     def get_motor_torque(self):
         '''

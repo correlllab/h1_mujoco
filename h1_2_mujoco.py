@@ -18,29 +18,29 @@ def sim_loop():
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
-    # get copy of mesh for pyvista visualization
-    body_meshes = {}
-    body_mesh_points = {}
-    for i in range(mujoco_env.model.nbody):
-        body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
-        if body_meshes[i] is not None:
-            body_mesh_points[i] = np.array(body_meshes[i].points)
-    # initialize pyvista
-    pv.set_plot_theme('document')
-    pl = pv.Plotter()
-    pl.add_axes()
-    pl.show(interactive_update=True)
-    # define body name & id
-    body_name = 'left_wrist_pitch_link'
-    body_id = mujoco_env.model.body(body_name).id
-    # add meshes to pyvista
-    for i in range(mujoco_env.model.nbody):
-        if body_meshes[i] is not None:
-            color = 'red' if i == body_id else 'lightblue'
-            pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
-    # add visualization arrow
-    arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
-    actor = pl.add_mesh(arrow, color='red', name='arrow')
+    # # get copy of mesh for pyvista visualization
+    # body_meshes = {}
+    # body_mesh_points = {}
+    # for i in range(mujoco_env.model.nbody):
+    #     body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
+    #     if body_meshes[i] is not None:
+    #         body_mesh_points[i] = np.array(body_meshes[i].points)
+    # # initialize pyvista
+    # pv.set_plot_theme('document')
+    # pl = pv.Plotter()
+    # pl.add_axes()
+    # pl.show(interactive_update=True)
+    # # define body name & id
+    # body_name = 'left_wrist_pitch_link'
+    # body_id = mujoco_env.model.body(body_name).id
+    # # add meshes to pyvista
+    # for i in range(mujoco_env.model.nbody):
+    #     if body_meshes[i] is not None:
+    #         color = 'red' if i == body_id else 'lightblue'
+    #         pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
+    # # add visualization arrow
+    # arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
+    # actor = pl.add_mesh(arrow, color='red', name='arrow')
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -51,23 +51,23 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
-        # get wrench
-        force, torque = mujoco_env.get_body_wrench(body_id)
-        print(f'Force: {force}, Torque: {torque}')
+        # # get wrench
+        # force, torque = mujoco_env.get_body_wrench(body_id)
+        # print(f'Force: {force}, Torque: {torque}')
 
-        # update pyvista meshes
-        for i in range(mujoco_env.model.nbody):
-            if body_meshes[i] is not None:
-                # update mesh points
-                body_meshes[i].points = body_mesh_points[i]
-                # update mesh transform
-                body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
-        # update arrow transform
-        position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
-        actor.mapper.SetInputData(new_arrow)
-        actor.mapper.update()
-        pl.update()
+        # # update pyvista meshes
+        # for i in range(mujoco_env.model.nbody):
+        #     if body_meshes[i] is not None:
+        #         # update mesh points
+        #         body_meshes[i].points = body_mesh_points[i]
+        #         # update mesh transform
+        #         body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
+        # # update arrow transform
+        # position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
+        # new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
+        # actor.mapper.SetInputData(new_arrow)
+        # actor.mapper.update()
+        # pl.update()
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
@@ -84,29 +84,29 @@ def shadow_loop():
     # initialize sdk interface
     shadow_interface = ShadowInterface(mujoco_env.model, mujoco_env.data)
 
-    # get copy of mesh for pyvista visualization
-    body_meshes = {}
-    body_mesh_points = {}
-    for i in range(mujoco_env.model.nbody):
-        body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
-        if body_meshes[i] is not None:
-            body_mesh_points[i] = np.array(body_meshes[i].points)
-    # initialize pyvista
-    pv.set_plot_theme('document')
-    pl = pv.Plotter()
-    pl.add_axes()
-    pl.show(interactive_update=True)
-    # define body name & id
-    body_name = 'left_wrist_pitch_link'
-    body_id = mujoco_env.model.body(body_name).id
-    # add meshes to pyvista
-    for i in range(mujoco_env.model.nbody):
-        if body_meshes[i] is not None:
-            color = 'red' if i == body_id else 'lightblue'
-            pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
-    # add visualization arrow
-    arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
-    actor = pl.add_mesh(arrow, color='red', name='arrow')
+    # # get copy of mesh for pyvista visualization
+    # body_meshes = {}
+    # body_mesh_points = {}
+    # for i in range(mujoco_env.model.nbody):
+    #     body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
+    #     if body_meshes[i] is not None:
+    #         body_mesh_points[i] = np.array(body_meshes[i].points)
+    # # initialize pyvista
+    # pv.set_plot_theme('document')
+    # pl = pv.Plotter()
+    # pl.add_axes()
+    # pl.show(interactive_update=True)
+    # # define body name & id
+    # body_name = 'left_wrist_pitch_link'
+    # body_id = mujoco_env.model.body(body_name).id
+    # # add meshes to pyvista
+    # for i in range(mujoco_env.model.nbody):
+    #     if body_meshes[i] is not None:
+    #         color = 'red' if i == body_id else 'lightblue'
+    #         pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
+    # # add visualization arrow
+    # arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
+    # actor = pl.add_mesh(arrow, color='red', name='arrow')
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -117,28 +117,28 @@ def shadow_loop():
 
         mujoco_env.sim_step()
 
-        # get torque from tau_est
-        joint_torque = np.zeros(mujoco_env.model.nv)
-        motor_torque = shadow_interface.get_motor_torque()
-        joint_torque[6:26] = motor_torque[0:20]
-        joint_torque[38:45] = motor_torque[20:27]
-        # get wrench
-        force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
-        print(f'Force: {force}, Torque: {torque}')
+        # # get torque from tau_est
+        # joint_torque = np.zeros(mujoco_env.model.nv)
+        # motor_torque = shadow_interface.get_motor_torque()
+        # joint_torque[6:26] = motor_torque[0:20]
+        # joint_torque[38:45] = motor_torque[20:27]
+        # # get wrench
+        # force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
+        # print(f'Force: {force}, Torque: {torque}')
 
-        # update pyvista meshes
-        for i in range(mujoco_env.model.nbody):
-            if body_meshes[i] is not None:
-                # update mesh points
-                body_meshes[i].points = body_mesh_points[i]
-                # update mesh transform
-                body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
-        # update arrow transform
-        position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
-        actor.mapper.SetInputData(new_arrow)
-        actor.mapper.update()
-        pl.update()
+        # # update pyvista meshes
+        # for i in range(mujoco_env.model.nbody):
+        #     if body_meshes[i] is not None:
+        #         # update mesh points
+        #         body_meshes[i].points = body_mesh_points[i]
+        #         # update mesh transform
+        #         body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
+        # # update arrow transform
+        # position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
+        # new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
+        # actor.mapper.SetInputData(new_arrow)
+        # actor.mapper.update()
+        # pl.update()
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
