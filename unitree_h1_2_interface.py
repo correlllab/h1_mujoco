@@ -27,13 +27,13 @@ class SimInterface:
 
         # initialize state parameters
         self.num_motor = MOTOR_NUM
-        self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
+        self.num_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
         self.dt = self.model.opt.timestep
 
         # check sensor
         self.have_imu = False
         self.have_frame_sensor = False
-        for i in range(self.dim_motor_sensor, self.model.nsensor):
+        for i in range(self.num_motor_sensor, self.model.nsensor):
             name = mujoco.mj_id2name(
                 self.model, mujoco._enums.mjtObj.mjOBJ_SENSOR, i
             )
@@ -69,7 +69,7 @@ class SimInterface:
 
     def PublishLowState(self):
         if self.data is not None:
-            # wrote motor state
+            # write motor state
             for i in range(self.num_motor):
                 self.low_state.motor_state[i].q = self.data.sensordata[i]
                 self.low_state.motor_state[i].dq = self.data.sensordata[
@@ -78,40 +78,39 @@ class SimInterface:
                 self.low_state.motor_state[i].tau_est = self.data.sensordata[
                     i + 2 * self.num_motor
                 ]
-
-            if self.have_frame_sensor:
+            if self.have_imu:
                 # write IMU data
                 self.low_state.imu_state.quaternion[0] = self.data.sensordata[
-                    self.dim_motor_sensor + 0
+                    self.num_motor_sensor + 0
                 ]
                 self.low_state.imu_state.quaternion[1] = self.data.sensordata[
-                    self.dim_motor_sensor + 1
+                    self.num_motor_sensor + 1
                 ]
                 self.low_state.imu_state.quaternion[2] = self.data.sensordata[
-                    self.dim_motor_sensor + 2
+                    self.num_motor_sensor + 2
                 ]
                 self.low_state.imu_state.quaternion[3] = self.data.sensordata[
-                    self.dim_motor_sensor + 3
+                    self.num_motor_sensor + 3
                 ]
                 # write gyroscope data
                 self.low_state.imu_state.gyroscope[0] = self.data.sensordata[
-                    self.dim_motor_sensor + 4
+                    self.num_motor_sensor + 4
                 ]
                 self.low_state.imu_state.gyroscope[1] = self.data.sensordata[
-                    self.dim_motor_sensor + 5
+                    self.num_motor_sensor + 5
                 ]
                 self.low_state.imu_state.gyroscope[2] = self.data.sensordata[
-                    self.dim_motor_sensor + 6
+                    self.num_motor_sensor + 6
                 ]
                 # write accelerometer data
                 self.low_state.imu_state.accelerometer[0] = self.data.sensordata[
-                    self.dim_motor_sensor + 7
+                    self.num_motor_sensor + 7
                 ]
                 self.low_state.imu_state.accelerometer[1] = self.data.sensordata[
-                    self.dim_motor_sensor + 8
+                    self.num_motor_sensor + 8
                 ]
                 self.low_state.imu_state.accelerometer[2] = self.data.sensordata[
-                    self.dim_motor_sensor + 9
+                    self.num_motor_sensor + 9
                 ]
             # write to low state
             self.low_state_puber.Write(self.low_state)
@@ -120,23 +119,23 @@ class SimInterface:
         if self.data is not None:
             # write global posiiton
             self.high_state.position[0] = self.data.sensordata[
-                self.dim_motor_sensor + 10
+                self.num_motor_sensor + 10
             ]
             self.high_state.position[1] = self.data.sensordata[
-                self.dim_motor_sensor + 11
+                self.num_motor_sensor + 11
             ]
             self.high_state.position[2] = self.data.sensordata[
-                self.dim_motor_sensor + 12
+                self.num_motor_sensor + 12
             ]
             # write global velocity
             self.high_state.velocity[0] = self.data.sensordata[
-                self.dim_motor_sensor + 13
+                self.num_motor_sensor + 13
             ]
             self.high_state.velocity[1] = self.data.sensordata[
-                self.dim_motor_sensor + 14
+                self.num_motor_sensor + 14
             ]
             self.high_state.velocity[2] = self.data.sensordata[
-                self.dim_motor_sensor + 15
+                self.num_motor_sensor + 15
             ]
         # write to high state
         self.high_state_puber.Write(self.high_state)
@@ -164,12 +163,12 @@ class ShadowInterface():
 
         # initialize state parameters
         self.num_motor = MOTOR_NUM
-        self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
+        self.num_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
 
         # check sensor
         self.have_imu = False
         self.have_frame_sensor = False
-        for i in range(self.dim_motor_sensor, self.model.nsensor):
+        for i in range(self.num_motor_sensor, self.model.nsensor):
             name = mujoco.mj_id2name(
                 self.model, mujoco._enums.mjtObj.mjOBJ_SENSOR, i
             )
@@ -215,28 +214,73 @@ class ShadowInterface():
         4: thumb
         5: thumb open
         '''
+        # print(f'left hand: {[state.q for state in msg.states[:6]]}')
+        # print(f'left hand ctrl: {self.data.ctrl[self.num_motor:self.num_motor + 12]}')
+        # print(f'right hand: {[state.q for state in msg.states[6:12]]}')
+        # print(f'right hand ctrl: {self.data.ctrl[self.num_motor + 12:self.num_motor + 24]}')
+        finger_gain = 2.0
         if self.data is not None:
-            # for pinky to index, 2 joints map to 1 control signal
+            # control pinky to index, 2 joints map to 1 control signal
+            # target state [1, 0], sim joint state [0, 1.7]
             for i in range(4):
                 # left hand
-                self.data.ctrl[self.num_motor + i * 2] = 1 - msg.states[i].q
-                self.data.ctrl[self.num_motor + i * 2 + 1] = 1 - msg.states[i].q
+                self.data.ctrl[self.num_motor + i * 2] = (
+                    finger_gain * (1 - msg.states[i].q -
+                                   self.data.sensordata[self.num_motor_sensor + 16 + i * 2] / 1.7)
+                )
+                self.data.ctrl[self.num_motor + i * 2 + 1] = (
+                    finger_gain * (1 - msg.states[i].q -
+                                   self.data.sensordata[self.num_motor_sensor + 16 + i * 2 + 1] / 1.7)
+                )
                 # right hand
-                self.data.ctrl[self.num_motor + i * 2 + 12] = 1 - msg.states[i + 6].q
-                self.data.ctrl[self.num_motor + i * 2 + 13] = 1 - msg.states[i + 6].q
+                self.data.ctrl[self.num_motor + i * 2 + 12] = (
+                    finger_gain * (1 - msg.states[i + 6].q -
+                                   self.data.sensordata[self.num_motor_sensor + 28 + i * 2] / 1.7)
+                )
+                self.data.ctrl[self.num_motor + i * 2 + 13] = (
+                    finger_gain * (1 - msg.states[i + 6].q -
+                                   self.data.sensordata[self.num_motor_sensor + 28 + i * 2 + 1] / 1.7)
+                )
 
             # left thumb curl
-            self.data.ctrl[self.num_motor + 8] = 1 - msg.states[4].q
-            self.data.ctrl[self.num_motor + 9] = 1 - msg.states[4].q
-            self.data.ctrl[self.num_motor + 10] = 1 - msg.states[4].q
+            self.data.ctrl[self.num_motor + 8] = (
+                finger_gain * (1 - msg.states[4].q -
+                               (self.data.sensordata[self.num_motor_sensor + 16 + 8] + 0.1) / 0.7)
+            ) # target state [1, 0], sim joint state [-0.1, 0.6]
+            self.data.ctrl[self.num_motor + 9] = (
+                finger_gain * (1 - msg.states[4].q -
+                               self.data.sensordata[self.num_motor_sensor + 16 + 9] / 0.8)
+            ) # target state [1, 0], sim joint state [0, 0.8]
+            self.data.ctrl[self.num_motor + 10] = (
+                finger_gain * (1 - msg.states[4].q -
+                               self.data.sensordata[self.num_motor_sensor + 16 + 10] / 1.2)
+            ) # target state [1, 0], sim joint state [0, 1.2]
+
             # left thumb open
-            self.data.ctrl[self.num_motor + 11] = msg.states[5].q
+            self.data.ctrl[self.num_motor + 11] = (
+                finger_gain * (1 - msg.states[5].q -
+                               (self.data.sensordata[self.num_motor_sensor + 16 + 11] + 0.1) / 1.4)
+            ) # target state [1, 0], sim joint state [-0.1, 1.3]
+
             # right thumb curl
-            self.data.ctrl[self.num_motor + 20] = 1 - msg.states[10].q
-            self.data.ctrl[self.num_motor + 21] = 1 - msg.states[10].q
-            self.data.ctrl[self.num_motor + 22] = 1 - msg.states[10].q
+            self.data.ctrl[self.num_motor + 20] = (
+                finger_gain * (1 - msg.states[10].q -
+                               (self.data.sensordata[self.num_motor_sensor + 16 + 20] + 0.1) / 0.7)
+            ) # target state [1, 0], sim joint state [-0.1, 0.6]
+            self.data.ctrl[self.num_motor + 21] = (
+                finger_gain * (1 - msg.states[10].q -
+                               self.data.sensordata[self.num_motor_sensor + 16 + 21] / 0.8)
+            ) # target state [1, 0], sim joint state [0, 0.8]
+            self.data.ctrl[self.num_motor + 22] = (
+                finger_gain * (1 - msg.states[10].q -
+                               self.data.sensordata[self.num_motor_sensor + 16 + 22] / 1.2)
+            ) # target state [1, 0], sim joint state [0, 1.2]
+
             # right thumb open
-            self.data.ctrl[self.num_motor + 23] = msg.states[11].q
+            self.data.ctrl[self.num_motor + 23] = (
+                finger_gain * (1 - msg.states[11].q -
+                               (self.data.sensordata[self.num_motor_sensor + 16 + 23] + 0.1) / 1.4)
+            )
 
     def get_motor_torque(self):
         '''
