@@ -4,7 +4,6 @@ import mujoco.viewer
 import numpy as np
 
 from mink_interface import MinkInterface
-from mujoco_interface import MujocoInterface
 
 class MujocoEnv:
     def __init__(self, xml_path):
@@ -15,15 +14,43 @@ class MujocoEnv:
         self.mink_interface = MinkInterface()
         self.model, self.data = self.mink_interface.init_model(self.model)
 
-        # initialize mujoco interface
-        self.mujoco_interface = MujocoInterface(self.model, self.data)
-        self.mujoco_interface.link_mink(self.mink_interface)
         # initialize elastic band
-        # self.mujoco_interface.init_elastic_band()
+        self.elastic_band = None
+        self.band_enabled = False
 
         # set simulation parameters
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
+
+    def init_elastic_band(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
+        # initialize member variables
+        self.elastic_band = ElasticBand(point, length, stiffness, damping)
+        self.band_enabled = True
+        # attach band to model
+        self.band_attached_body_id = self.model.body('torso_link').id
+
+    def key_callback(self, key):
+        glfw = mujoco.glfw.glfw
+        # toggle elastic band
+        if key == glfw.KEY_SPACE and self.elastic_band is not None:
+            self.band_enabled = not self.band_enabled
+            print(f"Elastic band {'enabled' if self.band_enabled else 'disabled'}")
+        # handle input if elastic band is enabled
+        if self.band_enabled:
+            self.elastic_band.key_callback(key)
+        # handle input if we have link a mink IK solver
+        if self.mink_interface is not None:
+            self.mink_interface.key_callback(key)
+
+    def eval_band(self):
+        if self.elastic_band is not None and self.band_enabled:
+            # get x and v of pelvis joint (joint on the hip)
+            x = self.data.qpos[:3]
+            v = self.data.qvel[:3]
+            # evaluate elastic band force
+            f = self.elastic_band.evalute_force(x, v)
+            # apply force to the band-attached link
+            self.data.xfrc_applied[self.band_attached_body_id, :3] = f
 
     def set_ik_task(self, link_name, target_position, enabled_link_mask):
         # initialize task and set target position
@@ -32,7 +59,7 @@ class MujocoEnv:
         self.enabled_link_mask = enabled_link_mask
 
     def launch_viewer(self):
-        self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.mujoco_interface.key_callback)
+        self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
         # set camera position
         self.viewer.cam.azimuth = 88.650
         self.viewer.cam.distance = 5.269
@@ -40,6 +67,8 @@ class MujocoEnv:
         self.viewer.cam.lookat = [0.001, -0.103, 0.623]
 
     def sim_step(self):
+        # evaluate elastic band
+        self.eval_band()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
         # sync user input
@@ -117,3 +146,37 @@ class MujocoEnv:
         world_torque = np.linalg.inv(jac_rot @ jac_rot.T) @ jac_rot @ joint_torque
 
         return world_force, world_torque
+
+class ElasticBand:
+    def __init__(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
+        self.point = point.astype(np.float64)
+        self.length = length
+        self.stiffness = stiffness
+        self.damping = damping
+
+    def evalute_force(self, x, v):
+        # displacement
+        displacement = np.linalg.norm(x - self.point)
+        # direction
+        direction = (x - self.point) / displacement
+        # tangential velocity
+        v_tan = np.dot(v, direction)
+        # spring damper model
+        f = (-self.stiffness * (displacement - self.length) - self.damping * v_tan) * direction
+
+        return f
+
+    def key_callback(self, key):
+        glfw = mujoco.glfw.glfw
+        if key == glfw.KEY_LEFT:
+            self.point[0] -= 0.1
+        elif key == glfw.KEY_RIGHT:
+            self.point[0] += 0.1
+        elif key == glfw.KEY_UP:
+            self.point[1] += 0.1
+        elif key == glfw.KEY_DOWN:
+            self.point[1] -= 0.1
+        elif key == glfw.KEY_COMMA:
+            self.length -= 0.1
+        elif key == glfw.KEY_PERIOD:
+            self.length += 0.1

@@ -24,6 +24,7 @@ while mujoco_env.viewer.is_running():
     step_start = time.time()
 
     mujoco_env.sim_step()
+    mujoco_env.ik_step()
 
     # ensure correct time stepping
     time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
