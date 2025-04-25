@@ -77,7 +77,7 @@ class MujocoEnv:
         '''
         Get the motor torque.
         '''
-        return np.array(self.data.ctrl)
+        return np.array(self.data.actuator_force)
 
     def get_body_wrench(self, body_id, joint_torque=None):
         '''
@@ -88,6 +88,9 @@ class MujocoEnv:
             motor_torque = self.get_motor_torque()
             joint_torque[6:26] = motor_torque[0:20]
             joint_torque[38:45] = motor_torque[20:27]
+        # subtract bias from gravity
+        joint_torque[6:26] -= self.data.qfrc_bias[6:26]
+        joint_torque[38:45] -= self.data.qfrc_bias[38:45]
         # get positional and rotational jacobian
         jac_pos, jac_rot = self.get_body_jacobian(body_id)
         # compute force in world frame
