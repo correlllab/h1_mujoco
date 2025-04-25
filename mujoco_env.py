@@ -87,6 +87,7 @@ class MujocoEnv:
         '''
         jac_pos = np.zeros((3, self.model.nv))
         jac_rot = np.zeros((3, self.model.nv))
+        mujoco.mj_forward(self.model, self.data)
         mujoco.mj_jacBody(self.model, self.data, jac_pos, jac_rot, body_id)
         # jac_pos is 3xN positional jacobian, jac_rot is 3xN rotational jacobian
         return jac_pos, jac_rot
@@ -117,12 +118,12 @@ class MujocoEnv:
             motor_torque = self.get_motor_torque()
             joint_torque[6:26] = motor_torque[0:20]
             joint_torque[38:45] = motor_torque[20:27]
-        # subtract bias from gravity
+        # subtract gravity bias
         joint_torque[6:26] -= self.data.qfrc_bias[6:26]
         joint_torque[38:45] -= self.data.qfrc_bias[38:45]
         # get positional and rotational jacobian
         jac_pos, jac_rot = self.get_body_jacobian(body_id)
-        # compute force in world frame
+        # compute wrench in world frame
         jac = np.vstack((jac_pos, jac_rot))
         world_wrench = np.linalg.inv(jac @ jac.T) @ jac @ joint_torque
         world_force = world_wrench[:3]
@@ -139,11 +140,16 @@ class MujocoEnv:
             motor_torque = self.get_motor_torque()
             joint_torque[7:27] = motor_torque[0:20]
             joint_torque[39:46] = motor_torque[20:27]
+        # subtract gravity bias
+        joint_torque[6:26] -= self.data.qfrc_bias[6:26]
+        joint_torque[38:45] -= self.data.qfrc_bias[38:45]
         # get positional and rotational jacobian
         jac_pos, jac_rot = self.get_site_jacobian(body_id)
-        # compute force & torque in world frame
-        world_force = np.linalg.inv(jac_pos @ jac_pos.T) @ jac_pos @ joint_torque
-        world_torque = np.linalg.inv(jac_rot @ jac_rot.T) @ jac_rot @ joint_torque
+        # compute wrench in world frame
+        jac = np.vstack((jac_pos, jac_rot))
+        world_wrench = np.linalg.inv(jac @ jac.T) @ jac @ joint_torque
+        world_force = world_wrench[:3]
+        world_torque = world_wrench[3:]
 
         return world_force, world_torque
 
