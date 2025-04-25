@@ -56,6 +56,13 @@ def sim_loop():
         # # get wrench
         # force, torque = mujoco_env.get_body_wrench(body_id)
         # print(f'Force: {force}, Torque: {torque}')
+        # # get transformation matrix
+        # matrix = mujoco_env.data.xmat[body_id]
+
+        # # transform force to global frame
+        # force_base = matrix.reshape(3, 3) @ force
+        # torque_base = matrix.reshape(3, 3) @ torque
+        # print(f'Force base: {force_base}, Torque base: {torque_base}')
 
         # # update pyvista meshes
         # for i in range(mujoco_env.model.nbody):
@@ -128,9 +135,14 @@ def shadow_loop():
         joint_torque[38:45] = motor_torque[20:27]
         # get wrench
         force, torque = mujoco_env.get_body_wrench(body_id, joint_torque)
-        print(f'Force: {force}, Torque: {torque}')
+        # print(f'Force: {force}, Torque: {torque}')
         # get transformation matrix
         matrix = mujoco_env.data.xmat[body_id]
+        # transform force to global frame
+        force_base = matrix.reshape(3, 3) @ force
+        torque_base = matrix.reshape(3, 3) @ torque
+        print(f'Force base: {force_base}, Torque base: {torque_base}')
+
         # transform to roll pitch yaw
         r = R.from_matrix(matrix.reshape(3, 3))
         roll, pitch, yaw = r.as_euler('xyz', degrees=True)
