@@ -89,7 +89,11 @@ class MujocoEnv:
         jac_rot = np.zeros((3, self.model.nv))
         mujoco.mj_forward(self.model, self.data)
         mujoco.mj_jacBody(self.model, self.data, jac_pos, jac_rot, body_id)
+
         # jac_pos is 3xN positional jacobian, jac_rot is 3xN rotational jacobian
+        # the first 6 DOF are fixed, so set to 0
+        jac_pos[0:3, 0:7] = 0
+        jac_rot[0:3, 0:7] = 0
         return jac_pos, jac_rot
 
     def get_site_jacobian(self, site_id):
