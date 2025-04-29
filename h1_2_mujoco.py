@@ -5,8 +5,8 @@ import pyvista as pv
 from scipy.spatial.transform import Rotation as R
 
 from mujoco_env import MujocoEnv
+from pv_interface import PVInterface
 from unitree_h1_2_interface import SimInterface, ShadowInterface
-from utility.mujoco_mesh_extract import mj_get_body_mesh, mj_get_contact_mesh, mj_mesh_to_polydata, mj_get_body_transform
 
 def sim_loop():
     '''
@@ -19,30 +19,13 @@ def sim_loop():
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
-    # # define body name & id
-    # body_name = 'left_wrist_pitch_link'
-    # body_id = mujoco_env.model.body(body_name).id
+    # define body name & id
+    body_name = 'left_wrist_pitch_link'
+    body_id = mujoco_env.model.body(body_name).id
 
-    # # get copy of mesh for pyvista visualization
-    # body_meshes = {}
-    # body_mesh_points = {}
-    # for i in range(mujoco_env.model.nbody):
-    #     body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
-    #     if body_meshes[i] is not None:
-    #         body_mesh_points[i] = np.array(body_meshes[i].points)
-    # # initialize pyvista
-    # pv.set_plot_theme('document')
-    # pl = pv.Plotter()
-    # pl.add_axes()
-    # pl.show(interactive_update=True)
-    # # add meshes to pyvista
-    # for i in range(mujoco_env.model.nbody):
-    #     if body_meshes[i] is not None:
-    #         color = 'red' if i == body_id else 'lightblue'
-    #         pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
-    # # add visualization arrow
-    # arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
-    # actor = pl.add_mesh(arrow, color='red', name='arrow')
+    # pyvista visualization
+    pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
+    pv_interface.track_body(body_name)
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -53,23 +36,13 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
-        # # get wrench
-        # force, torque = mujoco_env.get_body_wrench(body_id)
-        # print(f'Force: {force}, Torque: {torque}')
+        # get wrench
+        force, torque = mujoco_env.get_body_wrench(body_id)
+        print(f'Force: {force}, Torque: {torque}')
 
-        # # update pyvista meshes
-        # for i in range(mujoco_env.model.nbody):
-        #     if body_meshes[i] is not None:
-        #         # update mesh points
-        #         body_meshes[i].points = body_mesh_points[i]
-        #         # update mesh transform
-        #         body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
-        # # update arrow transform
-        # position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        # new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
-        # actor.mapper.SetInputData(new_arrow)
-        # actor.mapper.update()
-        # pl.update()
+        # update pyvista visualization
+        pv_interface.update_vector(force)
+        pv_interface.pv_render()
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
@@ -91,26 +64,9 @@ def shadow_loop():
     body_id = mujoco_env.model.body(body_name).id
     dump_dir = '../CORLCode/Subscriber_Dump'
 
-    # get copy of mesh for pyvista visualization
-    body_meshes = {}
-    body_mesh_points = {}
-    for i in range(mujoco_env.model.nbody):
-        body_meshes[i] = mj_get_body_mesh(mujoco_env.model, i)
-        if body_meshes[i] is not None:
-            body_mesh_points[i] = np.array(body_meshes[i].points)
-    # initialize pyvista
-    pv.set_plot_theme('document')
-    pl = pv.Plotter()
-    pl.add_axes()
-    pl.show(interactive_update=True)
-    # add meshes to pyvista
-    for i in range(mujoco_env.model.nbody):
-        if body_meshes[i] is not None:
-            color = 'red' if i == body_id else 'lightblue'
-            pl.add_mesh(body_meshes[i], color=color, show_edges=True, name=f'body_{i}')
-    # add visualization arrow
-    arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), scale=1)
-    actor = pl.add_mesh(arrow, color='red', name='arrow')
+    # update pyvista visualization
+    pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
+    pv_interface.track_body(body_name)
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -148,19 +104,9 @@ def shadow_loop():
             f.write(f'{force}\n')
             f.write(f'{torque}\n')
 
-        # update pyvista meshes
-        for i in range(mujoco_env.model.nbody):
-            if body_meshes[i] is not None:
-                # update mesh points
-                body_meshes[i].points = body_mesh_points[i]
-                # update mesh transform
-                body_meshes[i].transform(mj_get_body_transform(mujoco_env.data, i))
-        # update arrow transform
-        position = mj_get_body_transform(mujoco_env.data, body_id)[:3, 3]
-        new_arrow = pv.Arrow(start=position, direction=force, scale=0.5 * np.linalg.norm(force, ord=2))
-        actor.mapper.SetInputData(new_arrow)
-        actor.mapper.update()
-        pl.update()
+        # update pyvista visualization
+        pv_interface.update_vector(force)
+        pv_interface.pv_render()
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
