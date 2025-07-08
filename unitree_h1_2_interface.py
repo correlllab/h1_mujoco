@@ -195,9 +195,9 @@ class ShadowInterface():
                 self.motor_torque[i] = msg.motor_state[i].tau_est
                 self.data.ctrl[i] = (
                     msg.motor_state[i].tau_est
-                    + 100.0
+                    + msg.motor_state[i].kp
                     * (msg.motor_state[i].q - self.data.sensordata[i])
-                    + 3.0
+                    + msg.motor_state[i].kd
                     * (
                         msg.motor_state[i].dq
                         - self.data.sensordata[i + self.num_motor]

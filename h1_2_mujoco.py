@@ -23,9 +23,9 @@ def sim_loop():
     body_name = 'left_wrist_pitch_link'
     body_id = mujoco_env.model.body(body_name).id
 
-    # pyvista visualization
-    pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
-    pv_interface.track_body(body_name)
+    # # pyvista visualization
+    # pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
+    # pv_interface.track_body(body_name)
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -36,13 +36,13 @@ def sim_loop():
 
         mujoco_env.sim_step()
 
-        # get wrench
-        force, torque = mujoco_env.get_body_wrench(body_id)
-        print(f'Force: {force}, Torque: {torque}')
+        # # get wrench
+        # force, torque = mujoco_env.get_body_wrench(body_id)
+        # print(f'Force: {force}, Torque: {torque}')
 
-        # update pyvista visualization
-        pv_interface.update_vector(force)
-        pv_interface.pv_render()
+        # # update pyvista visualization
+        # pv_interface.update_vector(force)
+        # pv_interface.pv_render()
 
         # ensure correct time stepping
         time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
