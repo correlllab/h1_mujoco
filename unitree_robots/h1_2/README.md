@@ -5,7 +5,7 @@
 This package includes a streamlined robot description (URDF & MJCF) for the [Unitree H1](https://www.unitree.com/h1/), developed by [Unitree Robotics](https://www.unitree.com/).
 
 <p align="center">
-  <img src="h1_5.png" width="500"/>
+  <img src="h1_2.png" width="500"/>
 </p>
 
 Unitree H1 have 51 DOFs:
@@ -28,8 +28,8 @@ root [⚓] => /pelvis/
         left_shoulder_pitch_joint [⚙+Y] => /left_shoulder_pitch_link/
             left_shoulder_roll_joint [⚙+X] => /left_shoulder_roll_link/
                 left_shoulder_yaw_joint [⚙+Z] => /left_shoulder_yaw_link/
-                    left_elbow_pitch_joint [⚙+Y] => /left_elbow_pitch_link/
-                        left_elbow_roll_joint [⚙+X] => /left_elbow_roll_link/
+                    left_elbow_joint [⚙+Y] => /left_elbow_link/
+                        left_wrist_roll_joint [⚙+X] => /left_wrist_roll_link/
                             left_wrist_pitch_joint [⚙+Y] => /left_wrist_pitch_link/
                                 left_wrist_yaw_joint [⚙+Z] => /left_wrist_yaw_link/
                                     L_base_link_joint [⚓] => /L_hand_base_link/
@@ -48,8 +48,8 @@ root [⚓] => /pelvis/
         right_shoulder_pitch_joint [⚙+Y] => /right_shoulder_pitch_link/
             right_shoulder_roll_joint [⚙+X] => /right_shoulder_roll_link/
                 right_shoulder_yaw_joint [⚙+Z] => /right_shoulder_yaw_link/
-                    right_elbow_pitch_joint [⚙+Y] => /right_elbow_pitch_link/
-                        right_elbow_roll_joint [⚙+X] => /right_elbow_roll_link/
+                    right_elbow_joint [⚙+Y] => /right_elbow_link/
+                        right_wrist_roll_joint [⚙+X] => /right_wrist_roll_link/
                             right_wrist_pitch_joint [⚙+Y] => /right_wrist_pitch_link/
                                 right_wrist_yaw_joint [⚙+Z] => /right_wrist_yaw_link/
                                     R_base_link_joint [⚓] => /R_hand_base_link/
