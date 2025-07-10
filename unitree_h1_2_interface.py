@@ -144,16 +144,17 @@ class SimInterface:
         if self.data is not None:
             # apply control to each motor
             for i in range(self.num_motor):
-                self.data.ctrl[i] = (
-                    msg.motor_cmd[i].tau
-                    + msg.motor_cmd[i].kp
-                    * (msg.motor_cmd[i].q - self.data.sensordata[i])
-                    + msg.motor_cmd[i].kd
-                    * (
-                        msg.motor_cmd[i].dq
-                        - self.data.sensordata[i + self.num_motor]
+                if msg.motor_cmd[i].mode == 1:
+                    self.data.ctrl[i] = (
+                        msg.motor_cmd[i].tau
+                        + msg.motor_cmd[i].kp
+                        * (msg.motor_cmd[i].q - self.data.sensordata[i])
+                        + msg.motor_cmd[i].kd
+                        * (
+                            msg.motor_cmd[i].dq
+                            - self.data.sensordata[i + self.num_motor]
+                        )
                     )
-                )
 
 class ShadowInterface():
     def __init__(self, model, data):
