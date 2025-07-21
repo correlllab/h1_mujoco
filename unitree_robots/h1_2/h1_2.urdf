@@ -856,6 +856,7 @@
   </joint>
 
   <!-- Camera&Lidar -->
+  <!--
   <link name="camera_link"></link>
   <joint name="camera_joint" type="fixed">
     <origin xyz="0.11109 0.01750 0.68789" rpy="0 0.8859291283123216 0"/>
@@ -867,6 +868,39 @@
     <origin xyz="0.04874 0 0.67980" rpy="0 0.24015730507441985 0"/>
     <parent link="torso_link"/>
     <child link="lidar_link"/>
+  </joint>
+  -->
+
+  <!-- LiDAR -->
+  <link name="lidar_link"></link>
+  <joint name="lidar_joint" type="fixed">
+    <origin xyz="0.04874 0 0.679808" rpy="0 -2.90143535 0"/>
+    <parent link="torso_link"/>
+    <child link="lidar_link"/>
+  </joint>
+
+  <!-- Head Camera -->
+  <link name="head_camera_link"></link>
+  <joint name="head_camera_joint" type="fixed">
+    <origin xyz="0.11109 0.01750 0.68789" rpy="-2.45672546 0 -1.5708"/>
+    <parent link="torso_link"/>
+    <child link="head_camera_link"/>
+  </joint>
+
+  <!-- Left Wrist Camera -->
+  <link name="left_hand_camera_link"></link>
+  <joint name="left_hand_camera_joint" type="fixed">
+    <origin xyz="0 0.04 0" rpy="0 1.5708 0"/>
+    <parent link="left_wrist_yaw_link"/>
+    <child link="left_hand_camera_link"/>
+  </joint>
+
+  <!-- Right Wrist Camera -->
+  <link name="right_hand_camera_link"></link>
+  <joint name="right_hand_camera_joint" type="fixed">
+    <origin xyz="0 -0.04 0" rpy="-3.1415 -1.5708 0"/>
+    <parent link="right_wrist_yaw_link"/>
+    <child link="right_hand_camera_link"/>
   </joint>
 
   <!-- L Gripper -->
