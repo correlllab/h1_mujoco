@@ -120,10 +120,11 @@ def command_loop():
     '''
     # initialize mujoco environment
     mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_with_target.xml')
+    mujoco_env.init_mink()
 
     # set IK task
     mujoco_env.set_ik_task(
-        link_name='left_wrist',
+        link_name='left_wrist_yaw_link',
         target_position=np.array([0.7, 0.1, 1.5]),
         enabled_link_mask=[i for i in range(18, 26)]
     )

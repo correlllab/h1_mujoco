@@ -9,7 +9,7 @@ class MinkInterface:
     def init_model(self, model):
         self.model_init = True
         self.configuration = mink.Configuration(model)
-        self.solver = 'quadprog'
+        self.solver = 'daqp'
 
         # use configuration copy of model & data
         self.model = self.configuration.model
