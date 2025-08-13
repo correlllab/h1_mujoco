@@ -2,7 +2,7 @@ import time
 import numpy as np
 
 from mujoco_env import MujocoEnv
-from unitree_h1_interface import SimInterface
+from archive.unitree_h1_interface import SimInterface
 
 # initialize mujoco environment
 mujoco_env = MujocoEnv('unitree_robots/h1/scene_with_target.xml')
