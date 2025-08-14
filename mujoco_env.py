@@ -1,16 +1,12 @@
-import time
 import mujoco
 import mujoco.viewer
 import numpy as np
-
-from mink_interface import MinkInterface
 
 class MujocoEnv:
     def __init__(self, xml_path):
         # initialize robot model
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
-        self.mink_interface = None
 
         # initialize elastic band
         self.elastic_band = None
@@ -19,11 +15,6 @@ class MujocoEnv:
         # set simulation parameters
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
-
-    def init_mink(self):
-        # initialize mink interface
-        self.mink_interface = MinkInterface()
-        self.model, self.data = self.mink_interface.init_model(self.model)
 
     def init_elastic_band(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
         # initialize member variables
@@ -42,8 +33,6 @@ class MujocoEnv:
         if self.band_enabled:
             self.elastic_band.key_callback(key)
         # handle input if we have link a mink IK solver
-        if self.mink_interface is not None:
-            self.mink_interface.key_callback(key)
 
     def eval_band(self):
         if self.elastic_band is not None and self.band_enabled:
@@ -54,12 +43,6 @@ class MujocoEnv:
             f = self.elastic_band.evalute_force(x, v)
             # apply force to the band-attached link
             self.data.xfrc_applied[self.band_attached_body_id, :3] = f
-
-    def set_ik_task(self, link_name, target_position, enabled_link_mask):
-        # initialize task and set target position
-        self.mink_interface.init_task(link_name, 'body')
-        self.mink_interface.set_target(target_position)
-        self.enabled_link_mask = enabled_link_mask
 
     def launch_viewer(self):
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
@@ -74,12 +57,6 @@ class MujocoEnv:
         self.eval_band()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
-        # sync user input
-        self.viewer.sync()
-
-    def ik_step(self):
-        # solve IK
-        self.mink_interface.solve_IK(self.enabled_link_mask)
         # sync user input
         self.viewer.sync()
 
