@@ -1,12 +1,10 @@
 import time
-import argparse
 import numpy as np
 import pyvista as pv
-from scipy.spatial.transform import Rotation as R
 
 from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
-from unitree_interface import SimInterface, ShadowInterface
+from unitree_interface import SimInterface
 
 def sim_loop():
     '''
@@ -49,8 +47,5 @@ def sim_loop():
         if time_until_next_step > 0:
             time.sleep(time_until_next_step)
 
-def main():
-    sim_loop()
-
 if __name__ == '__main__':
-    main()
+    sim_loop()
