@@ -1,5 +1,5 @@
 --- h1_2_handless.xml	2025-09-09 15:49:55.366555221 -0600
-+++ h1_2_pos.xml	2025-09-11 13:59:33.533232922 -0600
++++ h1_2_pos.xml	2025-10-02 13:09:21.442040884 -0600
 @@ -1,6 +1,66 @@
 -<mujoco model="h1_2">
 +<mujoco model="Unitree H1_2">
@@ -245,9 +245,9 @@
                        <joint name="left_wrist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.27 1.27" actuatorfrcrange="-19 19"/>
                        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="wrist_yaw_link"/>
 +                      <!-- <geom class="visual" mesh="wrist_yaw_link"/> -->
-+                      <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.28 0 -0.015"/>
-+                      <geom class="collision" type="sphere" size="0.033" pos="0.28 0 -0.015"/>
-+                      <site name="left_hand" pos="0.31 0 -0.01" size="0.01" rgba="0 1 0 1"/>
++                      <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.13 0 0"/>
++                      <geom class="collision" type="sphere" size="0.033" pos="0.13 0 0"/>
++                      <site name="left_hand" pos="0.17 0 0.0" size="0.01" rgba="0 1 0 1"/>
                      </body>
                    </body>
                  </body>
@@ -298,9 +298,9 @@
                        <joint name="right_wrist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.27 1.27" actuatorfrcrange="-19 19"/>
                        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="wrist_yaw_link"/>
 +                      <!-- <geom class="visual" mesh="wrist_yaw_link"/> -->
-+                      <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.28 0 -0.015"/>
-+                      <geom class="collision" type="sphere" size="0.033" pos="0.28 0 -0.015"/>
-+                      <site name="right_hand" pos="0.31 0 -0.01" size="0.01" rgba="0 1 0 1"/>
++                      <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.13 0 0"/>
++                      <geom class="collision" type="sphere" size="0.033" pos="0.13 0 0"/>
++                      <site name="right_hand" pos="0.17 0 0" size="0.01" rgba="0 1 0 1"/>
                      </body>
                    </body>
                  </body>
