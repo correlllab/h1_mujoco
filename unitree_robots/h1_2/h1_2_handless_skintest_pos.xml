@@ -338,20 +338,5 @@
     <position name="right_wrist_pitch_joint" joint="right_wrist_pitch_joint" ctrlrange="-0.4625 0.4625" class="wrist"/>
     <position name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist"/>
   </actuator>
-
-  <sensor>
-    <gyro name="imu-angular-velocity" site="imu" noise="5e-4" cutoff="34.9"/>
-    <accelerometer name="imu-linear-acceleration" site="imu" noise="1e-2" cutoff="157"/>
-
-    <!-- Skin sensors on right shoulder roll -->
-    <touch name="right_shoulder_roll_sensor_0" site="right_shoulder_roll_sensor_0"/>
-    <touch name="right_shoulder_roll_sensor_1" site="right_shoulder_roll_sensor_1"/>
-    <touch name="right_shoulder_roll_sensor_2" site="right_shoulder_roll_sensor_2"/>
-    <touch name="right_shoulder_roll_sensor_3" site="right_shoulder_roll_sensor_3"/>
-    <touch name="right_shoulder_roll_sensor_4" site="right_shoulder_roll_sensor_4"/>
-    <touch name="right_shoulder_roll_sensor_5" site="right_shoulder_roll_sensor_5"/>
-    <touch name="right_shoulder_roll_sensor_6" site="right_shoulder_roll_sensor_6"/>
-    <touch name="right_shoulder_roll_sensor_7" site="right_shoulder_roll_sensor_7"/>
-  </sensor>
-
+  
 </mujoco>
