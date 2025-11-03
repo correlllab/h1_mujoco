@@ -284,6 +284,11 @@
                       <!-- BEGIN LEFT HAND -->
                       <geom pos="0.054 0 0" quat="0.707107 0 0 0.707107" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="L_hand_base_link"/>
                       <geom pos="0.054 0 0" quat="0.707107 0 0 0.707107" type="mesh" rgba="0.1 0.1 0.1 1" mesh="L_hand_base_link"/>
+                      <!-- Site for palm center tracking -->
+                      <site name="left_palm_center" pos="0.054 0 0" quat="0.707107 0 0 0.707107" size="0.01" rgba="1 0 0 1"/>
+                      <!-- Site for palm normal (z-axis points out from palm) -->
+                      <site name="left_palm_normal" pos="0.054 0 0.01" quat="0.707107 0 0 0.707107" size="0.005" rgba="0 0 1 1"/>
+
                       <body name="L_thumb_proximal_base" pos="0.1231 -0.01696 0.02045" quat="-2.59735e-06 0.707107 0 0.707107">
                         <inertial pos="0.0048817 0.00038782 -0.00722" quat="0.445981 0.352284 0.495833 0.656617" mass="0.0018869" diaginertia="8.66031e-08 6.87331e-08 4.94199e-08"/>
                         <joint name="L_thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 1" range="-0.1 1.3" actuatorfrcrange="-1 1"/>
@@ -377,6 +382,18 @@
             <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="right_shoulder_roll_link"/>
             <geom type="mesh" rgba="0.1 0.1 0.1 1" group="3" mesh="right_shoulder_roll_link"/>
             <!-- <geom class="visual" mesh="right_shoulder_roll_link"/> -->
+
+            <!-- Right Shoulder Roll Skin Sensors -->
+            <site name="right_shoulder_roll_sensor_0" size="0.005" pos="0.02020913176238537 -0.010433539748191833 -0.1203891709446907" quat="0.810295 -0.0201007 -0.0935034 0.577525" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_1" size="0.005" pos="0.02196035161614418 0.003525834996252 0.006447893101722" quat="0.792016 0.0117831 0.00664827 0.610367" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_2" size="0.005" pos="0.021171631291508675 -0.013482555747032166 -0.03812651336193085" quat="0.806692 -0.0245066 -0.0700673 0.586508" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_3" size="0.005" pos="0.019492628052830696 -0.013848518952727318 -0.07953478395938873" quat="0.784898 -0.0036899 -0.122677 0.607919" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_4" size="0.005" pos="0.011047429405152798 0.03214484453201294 -0.08381814509630203" quat="0.786676 -0.00115926 0.290854 0.544329" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_5" size="0.005" pos="-0.0885578915476799 0.008191447705030441 -0.12311510741710663" quat="-0.818202 -0.0318017 0.0753616 0.569331" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_6" size="0.005" pos="-0.043252378702163696 -0.05412545055150986 -0.12589296698570251" quat="-0.0838745 -0.0377336 -0.491309 0.866078" rgba="1 0 0 1"/>
+            <site name="right_shoulder_roll_sensor_7" size="0.005" pos="-0.010976525023579597 0.05005709081888199 -0.12077049911022186" quat="0.210544 -0.0226326 0.452998 0.865846" rgba="1 0 0 1"/>
+
+
             <body name="right_shoulder_yaw_link" pos="-0.0342 0 -0.1456">
               <inertial pos="0.004583 -0.001128 -0.001128" quat="0.747492 -0.0267235 -0.0108866 0.663644" mass="1.505" diaginertia="0.00431782 0.00420697 0.000645658"/>
               <joint name="right_shoulder_yaw_joint" pos="0 0 0" axis="0 0 1" range="-3.01 2.66" actuatorfrcrange="-18 18"/>
@@ -413,6 +430,9 @@
                       <!-- BEGIN RIGHT HAND -->
                       <geom pos="0.054 0 0" quat="0 0.707107 -0.707107 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="R_hand_base_link"/>
                       <geom pos="0.054 0 0" quat="0 0.707107 -0.707107 0" type="mesh" rgba="0.1 0.1 0.1 1" mesh="R_hand_base_link"/>
+                      <site name="right_palm_center" pos="0.054 0 0" quat="0 0.707107 -0.707107 0" size="0.01" rgba="1 0 0 1"/>
+                      <site name="right_palm_normal" pos="0.054 0 0.01" quat="0 0.707107 -0.707107 0" size="0.005" rgba="0 0 1 1"/>
+                      
                       <body name="R_thumb_proximal_base" pos="0.1231 0.01696 0.02045" quat="-0.707107 -2.59735e-06 -0.707107 0">
                         <inertial pos="-0.0048064 0.0009382 -0.00757" quat="0.515015 0.680854 0.408023 0.323596" mass="0.0018869" diaginertia="8.66026e-08 6.8732e-08 4.94194e-08"/>
                         <joint name="R_thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 -1" range="-0.1 1.3" actuatorfrcrange="-1 1"/>
@@ -560,5 +580,4 @@
     <position name="R_thumb_proximal_yaw_joint" joint="R_thumb_proximal_yaw_joint"/> -->
 
   </actuator>
-
 </mujoco>
