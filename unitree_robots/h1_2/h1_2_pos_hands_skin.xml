@@ -284,6 +284,11 @@
                       <!-- BEGIN LEFT HAND -->
                       <geom pos="0.054 0 0" quat="0.707107 0 0 0.707107" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="L_hand_base_link"/>
                       <geom pos="0.054 0 0" quat="0.707107 0 0 0.707107" type="mesh" rgba="0.1 0.1 0.1 1" mesh="L_hand_base_link"/>
+                      <!-- Site for palm center tracking -->
+                      <site name="left_palm_center" pos="0.054 0 0" quat="0.707107 0 0 0.707107" size="0.01" rgba="1 0 0 1"/>
+                      <!-- Site for palm normal (z-axis points out from palm) -->
+                      <site name="left_palm_normal" pos="0.054 0 0.01" quat="0.707107 0 0 0.707107" size="0.005" rgba="0 0 1 1"/>
+
                       <body name="L_thumb_proximal_base" pos="0.1231 -0.01696 0.02045" quat="-2.59735e-06 0.707107 0 0.707107">
                         <inertial pos="0.0048817 0.00038782 -0.00722" quat="0.445981 0.352284 0.495833 0.656617" mass="0.0018869" diaginertia="8.66031e-08 6.87331e-08 4.94199e-08"/>
                         <joint name="L_thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 1" range="-0.1 1.3" actuatorfrcrange="-1 1"/>
@@ -425,6 +430,9 @@
                       <!-- BEGIN RIGHT HAND -->
                       <geom pos="0.054 0 0" quat="0 0.707107 -0.707107 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="R_hand_base_link"/>
                       <geom pos="0.054 0 0" quat="0 0.707107 -0.707107 0" type="mesh" rgba="0.1 0.1 0.1 1" mesh="R_hand_base_link"/>
+                      <site name="right_palm_center" pos="0.054 0 0" quat="0 0.707107 -0.707107 0" size="0.01" rgba="1 0 0 1"/>
+                      <site name="right_palm_normal" pos="0.054 0 0.01" quat="0 0.707107 -0.707107 0" size="0.005" rgba="0 0 1 1"/>
+                      
                       <body name="R_thumb_proximal_base" pos="0.1231 0.01696 0.02045" quat="-0.707107 -2.59735e-06 -0.707107 0">
                         <inertial pos="-0.0048064 0.0009382 -0.00757" quat="0.515015 0.680854 0.408023 0.323596" mass="0.0018869" diaginertia="8.66026e-08 6.8732e-08 4.94194e-08"/>
                         <joint name="R_thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 -1" range="-0.1 1.3" actuatorfrcrange="-1 1"/>
