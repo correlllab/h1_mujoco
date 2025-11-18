@@ -29,8 +29,7 @@ def sim_loop():
     mujoco_env.launch_viewer()
     # main simulation loop
     while mujoco_env.viewer.is_running():
-        # record frame start time
-        step_start = time.time()
+        start_time = time.time()
 
         mujoco_env.sim_step()
 
@@ -42,10 +41,7 @@ def sim_loop():
         # pv_interface.update_vector(force)
         # pv_interface.pv_render()
 
-        # ensure correct time stepping
-        time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
-        if time_until_next_step > 0:
-            time.sleep(time_until_next_step)
+        time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
 
 if __name__ == '__main__':
     sim_loop()
