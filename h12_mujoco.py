@@ -1,12 +1,10 @@
 import time
-import argparse
 import numpy as np
 import pyvista as pv
-from scipy.spatial.transform import Rotation as R
 
 from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
-from unitree_interface import SimInterface, ShadowInterface
+from unitree_interface import SimInterface
 
 def sim_loop():
     '''
@@ -31,8 +29,7 @@ def sim_loop():
     mujoco_env.launch_viewer()
     # main simulation loop
     while mujoco_env.viewer.is_running():
-        # record frame start time
-        step_start = time.time()
+        start_time = time.time()
 
         mujoco_env.sim_step()
 
@@ -44,13 +41,7 @@ def sim_loop():
         # pv_interface.update_vector(force)
         # pv_interface.pv_render()
 
-        # ensure correct time stepping
-        time_until_next_step = mujoco_env.timestep - (time.time() - step_start)
-        if time_until_next_step > 0:
-            time.sleep(time_until_next_step)
-
-def main():
-    sim_loop()
+        time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
 
 if __name__ == '__main__':
-    main()
+    sim_loop()

@@ -1,5 +1,6 @@
 import mujoco
 import numpy as np
+import time
 
 from unitree_sdk2py.core.channel import ChannelFactoryInitialize, ChannelSubscriber, ChannelPublisher
 
@@ -47,27 +48,36 @@ class SimInterface:
         # ChannelFactoryInitialize(id=0, networkInterface='lo')
         # publish low state
         self.low_state = LowState_default()
-        self.low_state_puber = ChannelPublisher(TOPIC_LOWSTATE, LowState_)
-        self.low_state_puber.Init()
-        self.lowStateThread = RecurrentThread(
-            interval=self.dt, target=self.PublishLowState, name='sim_lowstate'
+        self.low_state_publisher = ChannelPublisher(TOPIC_LOWSTATE, LowState_)
+        self.low_state_publisher.Init()
+        self.low_state_thread = RecurrentThread(
+            interval=self.dt, target=self.publish_low_state, name='sim_lowstate'
         )
-        self.lowStateThread.Start()
+        self.low_state_thread.Start()
 
         # publish high state
         self.high_state = unitree_go_msg_dds__SportModeState_()
-        self.high_state_puber = ChannelPublisher(TOPIC_HIGHSTATE, SportModeState_)
-        self.high_state_puber.Init()
-        self.HighStateThread = RecurrentThread(
-            interval=self.dt, target=self.PublishHighState, name='sim_highstate'
+        self.high_state_publisher = ChannelPublisher(TOPIC_HIGHSTATE, SportModeState_)
+        self.high_state_publisher.Init()
+        self.high_state_thread = RecurrentThread(
+            interval=self.dt, target=self.publish_high_state, name='sim_highstate'
         )
-        self.HighStateThread.Start()
+        self.high_state_thread.Start()
 
         # subscribe to low command
-        self.low_cmd_suber = ChannelSubscriber(TOPIC_LOWCMD, LowCmd_)
-        self.low_cmd_suber.Init(self.LowCmdHandler, 10)
+        self.low_cmd_subscriber = ChannelSubscriber(TOPIC_LOWCMD, LowCmd_)
+        self.low_cmd_subscriber.Init(self.low_cmd_handler, 10)
 
-    def PublishLowState(self):
+        # timeout detection
+        self.last_cmd_time = time.time()
+        self.timeout = 0.1
+        self.timeout_detected = False
+        self.timeout_thread = RecurrentThread(
+            interval=0.01, target=self.check_cmd_timeout, name='cmd_watchdog'
+        )
+        self.timeout_thread.Start()
+
+    def publish_low_state(self):
         if self.data is not None:
             # write motor state
             for i in range(self.num_motor):
@@ -113,9 +123,9 @@ class SimInterface:
                     self.num_motor_sensor + 9
                 ]
             # write to low state
-            self.low_state_puber.Write(self.low_state)
+            self.low_state_publisher.Write(self.low_state)
 
-    def PublishHighState(self):
+    def publish_high_state(self):
         if self.data is not None:
             # write global posiiton
             self.high_state.position[0] = self.data.sensordata[
@@ -138,10 +148,12 @@ class SimInterface:
                 self.num_motor_sensor + 15
             ]
         # write to high state
-        self.high_state_puber.Write(self.high_state)
+        self.high_state_publisher.Write(self.high_state)
 
-    def LowCmdHandler(self, msg: LowCmd_):
+    def low_cmd_handler(self, msg: LowCmd_):
         if self.data is not None:
+            # update last command time
+            self.last_cmd_time = time.time()
             # apply control to each motor
             for i in range(self.num_motor):
                 if msg.motor_cmd[i].mode == 1:
@@ -155,6 +167,19 @@ class SimInterface:
                             - self.data.sensordata[i + self.num_motor]
                         )
                     )
+
+    def check_cmd_timeout(self):
+        current_time = time.time()
+        if (current_time - self.last_cmd_time) > self.timeout:
+            if not self.timeout_detected:
+                self.timeout_detected = True
+                print('Command timeout! Resetting motor controls to zero.')
+                # reset all motor controls to zero
+                if self.data is not None:
+                    for i in range(self.num_motor):
+                        self.data.ctrl[i] = 0.0
+        else:
+            self.timeout_detected = False
 
 class ShadowInterface():
     def __init__(self, model, data):
