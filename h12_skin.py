@@ -9,77 +9,43 @@ import mujoco
 import numpy as np
 
 class CapacitiveSkin:
-    def __init__(self, model, data, mode="spherical_distance", target_obj_geom_id=None):
-        """
-        mode: one of:
-            - 'spherical_distance'
-            - 'gt_site_obj_distance'
-            - 'ray_depth_estimate'
-        """
+    def __init__(self, model, data, eps=1.0, sensing_radius=0.15):
         self.model = model
         self.data = data
-        self.mode = mode
-        self.target_obj_geom_id = target_obj_geom_id
-
-        # resolve site IDs
-        self.register_all_skin_sites()
+        self.eps = eps
+        self.sensing_radius = sensing_radius
+        self.sensor_site_ids = []
 
     def register_all_skin_sites(self):
-        self.site_ids = []
+        self.sensor_site_ids = []
         for i in range(self.model.nsite):
             name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_SITE, i)
             if name is not None and 'sensor' in name.lower():
-                self.site_ids.append(i)
+                self.sensor_site_ids.append(i)
 
-    def compute_all_capacitances(self):
-        if self.mode == "spherical_distance":
-            return [self._spherical_distance(i) for i in self.site_ids]
+    def compute_capacitance_pair(self, sensor_pos, obstacle_pos, obstacle_radius):
+        d = np.linalg.norm(sensor_pos - obstacle_pos)
+        if d > self.sensing_radius + obstacle_radius:
+            return np.inf
+        effective_d = max(0.01, d - obstacle_radius)
+        return self.eps / effective_d
 
-        elif self.mode == "gt_site_obj_distance":
-            return [self._gt_distance(i) for i in self.site_ids]
+    def compute_distance(self, sensor_pos, obstacle_pos):
+        dist = np.linalg.norm(sensor_pos - obstacle_pos)
+        return np.inf if dist > self.sensing_radius else dist
 
-        elif self.mode == "ray_depth_estimate":
-            return [self._ray_depth(i) for i in self.site_ids]
+    def compute_all_capacitances(self, mujoco_env):
+        readings = {}
+        for sid in self.sensor_site_ids:
+            spos = self.data.site_xpos[sid]
+            oid = mujoco_env.model.body('obstacle').id
+            opos = mujoco_env.data.xpos[oid]
+            radius = mujoco_env.model.geom_size[mujoco_env.model.body_geomadr[oid]][0]
+            # readings[sid] = self.compute_capacitance_pair(spos, opos, radius)
+            readings[sid] = self.compute_distance(spos, opos)
+        return readings
 
-        else:
-            raise ValueError(f"Unknown mode {self.mode}")
 
-    # ---- MODES ----
-
-    def _spherical_distance(self, sid):
-        site_pos = self.data.site_xpos[sid]
-        obj_pos = self.data.geom_xpos[self.target_obj_geom_id]
-        d = np.linalg.norm(site_pos - obj_pos)
-        return np.exp(-d)  # whatever your nonlinear mapping is
-
-    def _gt_distance(self, sid):
-        site_pos = self.data.site_xpos[sid]
-        obj_pos = self.data.geom_xpos[self.target_obj_geom_id]
-        return float(np.linalg.norm(site_pos - obj_pos))
-
-    def _ray_depth(self, sid):
-        """
-        Use MuJoCo's built-in ray query:
-        - origin: site position
-        - direction: +Z axis of the site
-        """
-        origin = self.data.site_xpos[sid].copy()
-        zaxis = self.data.site_xmat[sid].reshape(3, 3)[:, 2]  # column 2 = +Z
-        geom_id = mujoco.mj_ray(
-            self.model,
-            self.data,
-            origin,
-            zaxis,
-            4.0,          # ray extent
-            None,
-            1             # flags: 1 = exclude geoms on same body
-        )
-
-        if geom_id < 0:
-            return -1.0
-        else:
-            hit = self.data.ray_xpos.copy()
-            return np.linalg.norm(hit - origin)
 
 def sim_loop():
     '''
@@ -104,12 +70,12 @@ def sim_loop():
         start = time.time()
 
         # Move obstacle
-        current_pos = mujoco_env.data.xpos[obstacle_id]
-        direction = goal_position - current_pos
-        dist = np.linalg.norm(direction)
-        if dist > 1e-3:
-            direction /= dist
-            mujoco_env.data.qvel[mujoco_env.model.body_jntadr[obstacle_id]:][:3] = direction * speed
+        # current_pos = mujoco_env.data.xpos[obstacle_id]
+        # direction = goal_position - current_pos
+        # dist = np.linalg.norm(direction)
+        # if dist > 1e-3:
+        #     direction /= dist
+        #     mujoco_env.data.qvel[mujoco_env.model.body_jntadr[obstacle_id]:][:3] = direction * speed
 
         mujoco_env.sim_step()
 
