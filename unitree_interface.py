@@ -167,6 +167,8 @@ class SimInterface:
                             - self.data.sensordata[i + self.num_motor]
                         )
                     )
+                else:
+                    self.data.ctrl[i] = 0.0
 
     def check_cmd_timeout(self):
         current_time = time.time()
