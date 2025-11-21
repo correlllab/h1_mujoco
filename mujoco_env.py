@@ -12,6 +12,11 @@ class MujocoEnv:
         self.elastic_band = None
         self.band_enabled = False
 
+        # initialize end-effector force interface
+        self.external_force = None
+        self.force_target_body_id = None
+        self.force_enabled = False
+
         # set simulation parameters
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
@@ -23,6 +28,50 @@ class MujocoEnv:
         # attach band to model
         self.band_attached_body_id = self.model.body('torso_link').id
 
+    def init_external_force(self, body_name='left_wrist_yaw_link',
+                                magnitude=10.0, damping=10.0):
+        '''
+        Initialize external force interface for human interaction simulation.
+
+        Args:
+            body_name: Name of the body to apply forces to (e.g., 'left_wrist_yaw_link', 'right_wrist_yaw_link')
+            magnitude: Maximum force magnitude (N)
+            damping: Damping coefficient for velocity-based force reduction
+        '''
+        try:
+            self.external_force = EndEffectorForce(magnitude, damping)
+            self.force_target_body_id = self.model.body(body_name).id
+            self.force_enabled = True
+            print(f'External force interface initialized for body: {body_name}')
+            print('Controls:')
+            print('  F - Toggle force on/off')
+            print('  Arrow Keys - Apply horizontal forces (↑↓←→)')
+            print('  Page Up/Down - Apply vertical forces (up/down)')
+            print('  +/- - Increase/decrease force magnitude')
+            print('  R - Reset forces to zero')
+            print('  Numpad 4/6 - Roll torque')
+            print('  Numpad 8/2 - Pitch torque')
+            print('  Numpad 7/9 - Yaw torque')
+            print('  Numpad 5 - Reset torque')
+        except Exception as e:
+            print(f'Error initializing external force for body {body_name}: {e}')
+            available_bodies = [self.model.body(i).name for i in range(self.model.nbody)]
+            print(f'Available wrist bodies: {available_bodies}')
+
+    def set_external_force(self, force_vector, torque_vector=None):
+        '''
+        Directly set the external force and torque.
+
+        Args:
+            force_vector: 3D force vector in world frame (N)
+            torque_vector: 3D torque vector in world frame (Nm), optional
+        '''
+        if self.external_force is not None:
+            self.external_force.set_force(force_vector)
+            if torque_vector is not None:
+                self.external_force.torque = np.array(torque_vector)
+            self.external_force.active = True
+
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
         # toggle elastic band
@@ -30,9 +79,11 @@ class MujocoEnv:
             self.band_enabled = not self.band_enabled
             print(f"Elastic band {'enabled' if self.band_enabled else 'disabled'}")
         # handle input if elastic band is enabled
-        if self.band_enabled:
+        if self.band_enabled and self.elastic_band is not None:
             self.elastic_band.key_callback(key)
-        # handle input if we have link a mink IK solver
+        # handle input for end-effector force
+        if self.external_force is not None:
+            self.external_force.key_callback(key)
 
     def eval_band(self):
         if self.elastic_band is not None and self.band_enabled:
@@ -43,6 +94,22 @@ class MujocoEnv:
             f = self.elastic_band.evalute_force(x, v)
             # apply force to the band-attached link
             self.data.xfrc_applied[self.band_attached_body_id, :3] = f
+
+    def eval_external_force(self):
+        '''Apply external forces and torques for human interaction simulation'''
+        if (self.external_force is not None and
+            self.force_target_body_id is not None and
+            self.external_force.active):
+
+            # get current velocity of the target body for damping
+            body_vel = self.data.cvel[self.force_target_body_id, :3]  # Linear velocity
+
+            # apply damping to the force
+            damped_force = self.external_force.apply_damping(body_vel)
+
+            # apply force and torque to the target body
+            self.data.xfrc_applied[self.force_target_body_id, :3] = damped_force
+            self.data.xfrc_applied[self.force_target_body_id, 3:] = self.external_force.torque
 
     def launch_viewer(self):
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
@@ -55,6 +122,8 @@ class MujocoEnv:
     def sim_step(self):
         # evaluate elastic band
         self.eval_band()
+        # evaluate external forces
+        self.eval_external_force()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
         # sync user input
@@ -63,7 +132,7 @@ class MujocoEnv:
     def get_body_jacobian(self, body_id):
         '''
         Get the Jacobian of a given body.
-        Return 3xN positional jacobian and 3xN rotational jacobian.
+        Return 3xN positional jacobian and 3xN rotational jacobian
         '''
         jac_pos = np.zeros((3, self.model.nv))
         jac_rot = np.zeros((3, self.model.nv))
@@ -79,7 +148,7 @@ class MujocoEnv:
     def get_site_jacobian(self, site_id):
         '''
         Get the Jacobian of a given site.
-        Return 3xN positional jacobian and 3xN rotational jacobian.
+        Return 3xN positional jacobian and 3xN rotational jacobian
         '''
         jac_pos = np.zeros((3, self.model.nv))
         jac_rot = np.zeros((3, self.model.nv))
@@ -95,7 +164,7 @@ class MujocoEnv:
 
     def get_body_wrench(self, body_id, joint_torque=None):
         '''
-        Get the body torque in world frame.
+        Get the body torque in world frame
         '''
         if joint_torque is None:
             joint_torque = np.zeros(self.model.nv)
@@ -117,7 +186,7 @@ class MujocoEnv:
 
     def get_site_wrench(self, body_id, joint_torque=None):
         '''
-        Get the body torque in world frame.
+        Get the body torque in world frame
         '''
         if joint_torque is None:
             joint_torque = np.zeros(self.model.nv)
@@ -170,3 +239,108 @@ class ElasticBand:
             self.length -= 0.1
         elif key == glfw.KEY_PERIOD:
             self.length += 0.1
+
+class EndEffectorForce:
+    def __init__(self, magnitude=10.0, damping=10.0):
+        '''
+        Initialize end-effector force controller for simulating human interaction
+
+        Args:
+            magnitude: Maximum force magnitude (N)
+            damping: Damping coefficient for velocity-based force reduction
+        '''
+        self.magnitude = magnitude
+        self.damping = damping
+        self.force = np.zeros(3)  # Current applied force in world frame
+        self.torque = np.zeros(3)  # Current applied torque in world frame
+        self.active = False
+
+        # force direction control
+        self.force_direction = np.array([1.0, 0.0, 0.0])  # Current force direction
+
+    def set_force(self, force_vector):
+        '''Set the force vector directly'''
+        self.force = np.array(force_vector)
+
+    def set_force_magnitude_direction(self, magnitude, direction):
+        '''Set force by magnitude and direction'''
+        direction_normalized = np.array(direction) / np.linalg.norm(direction)
+        self.force = magnitude * direction_normalized
+
+    def apply_damping(self, velocity):
+        '''Apply velocity-based damping to the force'''
+        if np.linalg.norm(velocity) > 0:
+            velocity_normalized = velocity / np.linalg.norm(velocity)
+            damping_force = -self.damping * np.dot(velocity, velocity_normalized) * velocity_normalized
+            return self.force + damping_force
+        return self.force
+
+    def key_callback(self, key):
+        '''Handle keyboard input for force control'''
+        glfw = mujoco.glfw.glfw
+
+        # toggle force application
+        if key == glfw.KEY_F:
+            self.active = not self.active
+            print(f'External force {"activated" if self.active else "deactivated"}')
+            if not self.active:
+                self.force = np.zeros(3)
+                self.torque = np.zeros(3)
+
+        if not self.active:
+            return
+
+        # force magnitude control
+        if key == glfw.KEY_KP_ADD or key == glfw.KEY_EQUAL:  # + key
+            self.magnitude = min(self.magnitude + 5.0, 200.0)
+            print(f'Force magnitude: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_KP_SUBTRACT or key == glfw.KEY_MINUS:  # - key
+            self.magnitude = max(self.magnitude - 5.0, 0.0)
+            print(f'Force magnitude: {self.magnitude:.1f} N')
+
+        # directional force control (Arrow keys + Page Up/Down for 3D)
+        elif key == glfw.KEY_UP:  # Forward (+X)
+            self.force = np.array([self.magnitude, 0, 0])
+            print(f'Applying forward force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_DOWN:  # Backward (-X)
+            self.force = np.array([-self.magnitude, 0, 0])
+            print(f'Applying backward force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_LEFT:  # Left (-Y)
+            self.force = np.array([0, -self.magnitude, 0])
+            print(f'Applying left force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_RIGHT:  # Right (+Y)
+            self.force = np.array([0, self.magnitude, 0])
+            print(f'Applying right force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_PAGE_UP:  # Up (+Z)
+            self.force = np.array([0, 0, self.magnitude])
+            print(f'Applying upward force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_PAGE_DOWN:  # Down (-Z)
+            self.force = np.array([0, 0, -self.magnitude])
+            print(f'Applying downward force: {self.magnitude:.1f} N')
+        elif key == glfw.KEY_R:  # Reset force
+            self.force = np.zeros(3)
+            self.torque = np.zeros(3)
+            print('Force reset to zero')
+
+        # torque control (numpad keys)
+        elif key == glfw.KEY_KP_4:  # Roll torque -
+            self.torque = np.array([-self.magnitude * 0.1, 0, 0])
+            print(f'Applying roll torque: {-self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_6:  # Roll torque +
+            self.torque = np.array([self.magnitude * 0.1, 0, 0])
+            print(f'Applying roll torque: {self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_8:  # Pitch torque +
+            self.torque = np.array([0, self.magnitude * 0.1, 0])
+            print(f'Applying pitch torque: {self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_2:  # Pitch torque -
+            self.torque = np.array([0, -self.magnitude * 0.1, 0])
+            print(f'Applying pitch torque: {-self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_7:  # Yaw torque +
+            self.torque = np.array([0, 0, self.magnitude * 0.1])
+            print(f'Applying yaw torque: {self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_9:  # Yaw torque -
+            self.torque = np.array([0, 0, -self.magnitude * 0.1])
+            print(f'Applying yaw torque: {-self.magnitude * 0.1:.1f} Nm')
+        elif key == glfw.KEY_KP_5:  # Reset torque
+            self.torque = np.zeros(3)
+            print('Torque reset to zero')
