@@ -1,0 +1,49 @@
+<mujoco model="Avoid H12">
+    <include file="h1_2_torso_skin.xml"/>
+    <include file="avoid.xml"/>
+
+    <keyframe>
+        <key name="home"
+        qpos="0.19 0 1.028
+            1 0 0 0
+            0 0 0 0 0 0
+            0 0 0 0 0 0
+            0
+            0 0 0 0 0 0 0
+            0 0 0 0 0 0 0
+            1.2 0 0.95 1 0 0 0"/>
+    </keyframe>
+
+    <sensor>
+        <!-- residual -->
+        <framepos name="torso_position" objtype="body" objname="torso_link"/>
+        <framepos name="head_position" objtype="body" objname="torso_link"/>
+        <subtreecom name="torso_subcom" body="torso_link"/>
+        <subtreelinvel name="torso_subtreelinvel" body="torso_link"/>
+        <framepos name="foot_right_pos" objtype="body" objname="right_ankle_roll_link"/>
+        <framepos name="foot_left_pos" objtype="body" objname="left_ankle_roll_link"/>
+        <framepos name="pelvis_position" objtype="body" objname="pelvis"/>
+        <framezaxis name="torso_up" objtype="xbody" objname="torso_link"/>
+        <framezaxis name="pelvis_up" objtype="xbody" objname="pelvis"/>
+        <framezaxis name="foot_right_up" objtype="xbody" objname="right_ankle_roll_link"/>
+        <framezaxis name="foot_left_up" objtype="xbody" objname="left_ankle_roll_link"/>
+        <framexaxis name="torso_forward" objtype="xbody" objname="torso_link"/>
+        <framexaxis name="pelvis_forward" objtype="xbody" objname="pelvis"/>
+        <framexaxis name="foot_right_forward" objtype="xbody" objname="right_ankle_roll_link"/>
+        <framexaxis name="foot_left_forward" objtype="xbody" objname="left_ankle_roll_link"/>
+        <subtreelinvel name="waist_lower_subcomvel" body="pelvis"/>
+        <framelinvel name="torso_velocity" objtype="body" objname="torso_link"/>
+        <framelinvel name="foot_right_velocity" objtype="body" objname="right_ankle_roll_link"/>
+        <framelinvel name="foot_left_velocity" objtype="body" objname="left_ankle_roll_link"/>
+        <subtreelinvel name="torso_subcomvel" body="torso_link"/>
+        <subtreelinvel name="foot_right_vel" body="right_ankle_roll_link"/>
+        <subtreelinvel name="foot_left_vel" body="left_ankle_roll_link"/>
+
+        <framepos name="left_hand_pos" objtype="site" objname="left_hand"/>
+        <framepos name="right_hand_pos" objtype="site" objname="right_hand"/>
+        <framelinvel name="left_hand_vel" objtype="site" objname="left_hand"/>
+        <framelinvel name="right_hand_vel" objtype="site" objname="right_hand"/>
+        <touch name="left_hand_contact" site="left_hand"/>
+        <touch name="right_hand_contact" site="right_hand"/>
+    </sensor>
+</mujoco>

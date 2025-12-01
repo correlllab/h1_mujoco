@@ -1,0 +1,10 @@
+<mujocoinclude>
+    <worldbody>
+        <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+        <!-- Dynamic Obstacle -->
+        <body name="obstacle" pos="1.5 0 1.0">
+        <freejoint name="obstacle_freejoint"/>
+        <geom name="obstacle_geom" type="sphere" size="0.12" rgba="0.8 0.2 0.2 1" mass="1.0"/>
+        </body>
+    </worldbody>
+</mujocoinclude>
