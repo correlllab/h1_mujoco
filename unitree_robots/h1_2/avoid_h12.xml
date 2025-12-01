@@ -1,6 +1,8 @@
 <mujoco model="Avoid H12">
     <include file="h1_2_torso_skin.xml"/>
     <include file="avoid.xml"/>
+    <include file="../assets/common.xml" />
+    <include file="../assets/floor.xml" />
 
     <keyframe>
         <key name="home"
