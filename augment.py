@@ -222,7 +222,7 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
     
     samples_created = 0
     attempts_made = 0
-    MAX_ATTEMPTS = num_samples * 5 # Try 5x the desired samples before giving up
+    MAX_ATTEMPTS = num_samples * 500 # Try 5x the desired samples before giving up
     
     while samples_created < num_samples and attempts_made < MAX_ATTEMPTS:
         attempts_made += 1
@@ -239,13 +239,8 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
 
         # 2. SANITY CHECK
         if not passes_collision_checks(model, data, qpos_robot_traj, obst_pos, radius, obst_qpos_adr, obst_body_id):
-            if samples_created == 0:
-                # If the original trajectory fails the safety check, it means the robot 
-                # trajectory itself involved collision and we should log a warning.
-                print("WARNING: Original trajectory failed geometric safety check. Logging it anyway.")
-                pass # Continue to log the original trajectory (samples_created == 0)
-            else:
-                continue # Try again with new random sample
+            print("WARNING: Original trajectory failed geometric safety check.")
+            continue # Try again with new random sample
 
         # 3. RE-COMPUTE CAPACITANCE 
         cap_new = np.zeros((T, len(skin_site_ids)))
@@ -302,7 +297,7 @@ def main():
     parser.add_argument("--xml", required=True, help="Path to the MuJoCo XML file (e.g., avoid_h12.xml).")
     parser.add_argument("--traj_dir", required=True, help="Path to the parent directory (e.g., traj_logs).")
     parser.add_argument("--out", default="augmented", help="Output directory for augmented files.")
-    parser.add_argument("--samples_per_file", type=int, default=5, help="Number of augmented samples to create per source file.")
+    parser.add_argument("--samples_per_file", type=int, default=1, help="Number of augmented samples to create per source file.")
     args = parser.parse_args()
 
     input_dir = os.path.join(args.traj_dir, "good")
