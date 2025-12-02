@@ -64,7 +64,7 @@ def interactive_annotate():
         
         # --- Step 2: Get user input ---
         while True:
-            response = input("Keep this trajectory? (Y/n/r=replay): ").lower()
+            response = input("Keep this trajectory? (Y/n/s=skip/r=replay): ").lower()
             
             if response in ['y', '']:
                 print(f"Keeping {file_name}.")
@@ -85,6 +85,10 @@ def interactive_annotate():
                 run_replay(XML_PATH, csv_file, loop_mode=True)
                 # After the user closes the looping viewer, prompt again
                 continue 
+
+            elif response == "s":
+                print(f"Skipping {file_name}.")
+                break
             
             else:
                 print("Invalid input. Please enter 'y', 'n', or 'r'.")
