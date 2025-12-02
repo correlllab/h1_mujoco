@@ -4,7 +4,7 @@ import glob
 import subprocess # Use subprocess to launch replay.py
 
 # --- Configuration ---
-LOGS_DIR = "traj_logs"
+LOGS_DIR = "augmented"
 JUNK_DIR = os.path.join(LOGS_DIR, "junk")
 GOOD_DIR = os.path.join(LOGS_DIR, "good")
 XML_PATH = "unitree_robots/h1_2/avoid_h12.xml" # Use your XML file name
@@ -19,7 +19,7 @@ def run_replay(xml_path, csv_path, loop_mode):
         "python3", "replay.py",
         "--xml", xml_path,
         "--csv", csv_path,
-        "--play_rate", "0.8",
+        "--play_rate", "0.2",
         "--replay_logged_obst" 
     ]
     
