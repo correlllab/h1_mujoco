@@ -4,7 +4,7 @@ import glob
 import subprocess # Use subprocess to launch replay.py
 
 # --- Configuration ---
-LOGS_DIR = "augmented"
+LOGS_DIR = "traj_logs/"
 JUNK_DIR = os.path.join(LOGS_DIR, "junk")
 GOOD_DIR = os.path.join(LOGS_DIR, "good")
 XML_PATH = "unitree_robots/h1_2/avoid_h12.xml" # Use your XML file name
@@ -19,7 +19,7 @@ def run_replay(xml_path, csv_path, loop_mode):
         "python3", "replay.py",
         "--xml", xml_path,
         "--csv", csv_path,
-        "--play_rate", "0.2",
+        "--play_rate", "1.0",
         "--replay_logged_obst" 
     ]
     
@@ -31,6 +31,7 @@ def run_replay(xml_path, csv_path, loop_mode):
         # Run the subprocess and wait for it to finish (i.e., the user closes the viewer)
         process = subprocess.Popen(command)
         process.wait()
+        return True
     except Exception as e:
         print(f"Error running replay.py: {e}")
         return False

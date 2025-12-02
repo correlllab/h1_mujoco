@@ -124,65 +124,67 @@ def replay(model, data, df, play_rate=1.0, args=None):
     # --------------------------------------------------------
     # Time loop
     # --------------------------------------------------------
-    for t in range(T):
+    while viewer.is_running():
+        for t in range(T):
 
-        # Load robot state
-        data.qpos[:qpos_robot.shape[1]] = qpos_robot[t]
-        data.qvel[:qvel_robot.shape[1]] = qvel_robot[t]
+            # Load robot state
+            data.qpos[:qpos_robot.shape[1]] = qpos_robot[t]
+            data.qvel[:qvel_robot.shape[1]] = qvel_robot[t]
 
-        # Load obstacle ballistic state
-        if obst_jid is not None:
-            px, py, pz = obst_pos[t]
-            qw, qx, qy, qz = 1, 0, 0, 0  # identity rotation
-            # qpos update (7 elements)
-            data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [px, py, pz, qw, qx, qy, qz]
-            
-            # qvel update (6 elements):
-            # Use obst_qvel_adr, which points to the start of the 6-D velocity block
-            data.qvel[obst_qvel_adr:obst_qvel_adr+6] = [
-                0, 0, 0,  # Angular velocity (roll, pitch, yaw rates)
-                obst_vel[t][0], obst_vel[t][1], obst_vel[t][2] # Linear velocity (vx, vy, vz)
-            ]
-        mujoco.mj_forward(model, data)
+            # Load obstacle ballistic state
+            if obst_jid is not None:
+                px, py, pz = obst_pos[t]
+                qw, qx, qy, qz = 1, 0, 0, 0  # identity rotation
+                # qpos update (7 elements)
+                data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [px, py, pz, qw, qx, qy, qz]
+                
+                # qvel update (6 elements):
+                # Use obst_qvel_adr, which points to the start of the 6-D velocity block
+                data.qvel[obst_qvel_adr:obst_qvel_adr+6] = [
+                    0, 0, 0,  # Angular velocity (roll, pitch, yaw rates)
+                    obst_vel[t][0], obst_vel[t][1], obst_vel[t][2] # Linear velocity (vx, vy, vz)
+                ]
+            mujoco.mj_forward(model, data)
 
-        # ------------------------------
-        # Compute LIVE capacitances
-        # ------------------------------
-        live = []
-        obst_xyz = obst_pos[t]
+            # ------------------------------
+            # Compute LIVE capacitances
+            # ------------------------------
+            live = []
+            obst_xyz = obst_pos[t]
 
-        for sid in skin_site_ids:
-            spos = data.site_xpos[sid]  # (3,)
-            cval = compute_capacitance(spos, obst_xyz, radius)
-            live.append(cval)
+            for sid in skin_site_ids:
+                spos = data.site_xpos[sid]  # (3,)
+                cval = compute_capacitance(spos, obst_xyz, radius)
+                live.append(cval)
 
-        live = np.array(live)
+            live = np.array(live)
 
-        # ------------------------------
-        # Compare with LOGGED capacitances
-        # ------------------------------
-        logged_row = cap_logged[t]
+            # ------------------------------
+            # Compare with LOGGED capacitances
+            # ------------------------------
+            logged_row = cap_logged[t]
 
-        eps = 1e-6
-        rel = np.abs(live - logged_row) / np.maximum(np.abs(logged_row), eps)
-        rel_errors.extend(rel.tolist())
+            eps = 1e-6
+            rel = np.abs(live - logged_row) / np.maximum(np.abs(logged_row), eps)
+            rel_errors.extend(rel.tolist())
 
-        # Per-step logging
-        if args.log_error:
-            mean_err = np.mean(rel)
-            print(f"[t={t}] mean %error = {100*mean_err:.2f}%")
+            # Per-step logging
+            if args.log_error:
+                mean_err = np.mean(rel)
+                print(f"[t={t}] mean %error = {100*mean_err:.2f}%")
 
-        if args.print_caps:
-            print(f"[t={t}] live={live}, logged={logged_row}")
+            if args.print_caps:
+                print(f"[t={t}] live={live}, logged={logged_row}")
 
-        # ------------------------------
-        # Show in viewer
-        # ------------------------------
-        viewer.sync()
-        time.sleep(dt / play_rate)
+            # ------------------------------
+            # Show in viewer
+            # ------------------------------
+            viewer.sync()
+            time.sleep(dt / play_rate)
 
-    if not args.loop:
-        viewer.close()
+        if not args.loop:
+            viewer.close()
+            break
 
     # --------------------------------------------------------
     # Print evaluation summary
