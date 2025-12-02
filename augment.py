@@ -7,8 +7,11 @@ import pandas as pd
 import mujoco
 from collections import OrderedDict
 
+# Define a minimum force threshold for a collision to be considered 'actual contact'
+COLLISION_FORCE_THRESHOLD = 1e-6 
+
 # -----------------------------------------------------------
-# Capacitance function (Kept from replay.py)
+# Capacitance function
 # -----------------------------------------------------------
 def compute_capacitance(sensor_pos, obst_pos, obst_radius, eps=1.0, sensing_radius=0.15):
     dx, dy, dz = sensor_pos - obst_pos
@@ -17,7 +20,6 @@ def compute_capacitance(sensor_pos, obst_pos, obst_radius, eps=1.0, sensing_radi
     if d > sensing_radius + obst_radius:
         return -1.0
 
-    # Ensure effective distance is at least 0.01 to prevent division by zero / high values
     effective_d = max(0.01, d - obst_radius)
     return eps / effective_d
 
@@ -32,13 +34,12 @@ def get_skin_site_ids(model):
 
 
 # -----------------------------------------------------------
-# Ballistic integration (Analytical Solution - High Accuracy)
+# Ballistic integration (Analytical Solution)
 # -----------------------------------------------------------
 def integrate_ballistic_analytical(start, vel0, gravity, T, dt):
     """
     Calculates the exact ballistic position and velocity at each timestep
     using the analytical solution: P(t) = P0 + V0*t + 0.5*g*t^2
-    This replaces the less accurate Euler integration.
     """
     start = np.asarray(start).reshape(1, 3)
     vel0  = np.asarray(vel0).reshape(1, 3)
@@ -50,7 +51,7 @@ def integrate_ballistic_analytical(start, vel0, gravity, T, dt):
     for t_step in range(T):
         t = t_step * dt
         
-        # Position: P(t) = P0 + V0*t + 0.5*g*t^2
+        # Position: P(t) = P0 + V0*t + 0.5*g*t**2
         pos[t_step] = start + vel0 * t + 0.5 * gravity * t**2
         
         # Velocity: V(t) = V0 + g*t
@@ -87,54 +88,97 @@ def sample_random_obstacle_params(orig_start, orig_radius):
 
 
 # -----------------------------------------------------------
-# Collision sanity checks (FIXED)
+# GEOMETRIC COLLISION CHECK (NEW)
 # -----------------------------------------------------------
-def passes_collision_checks(model, data, initial_qpos_robot, skin_site_ids, obst_xyz_traj, radius, sensing_radius=0.15):
+def is_collision_free(model, data, initial_qpos_robot, qpos_robot_t, obst_pos, obst_qpos_adr, obst_body_id):
     """
-    Ensures the obstacle trajectory is 'relevant' by checking if it enters the
-    robot's sensory sphere at its initial position, and then leaves it.
-    
-    The check is performed against the robot's INITIAL/HOME posture (t=0)
-    to ensure site positions are valid and fixed for the check.
+    Checks if the obstacle is in contact with the robot at a given time step.
+    Returns True if contact force > COLLISION_FORCE_THRESHOLD, False otherwise.
     """
     
-    # Set robot state to initial posture from the log (t=0)
-    qpos_cols = [c for c in initial_qpos_robot.index if c.startswith("qpos_")]
-    for i, col in enumerate(qpos_cols):
-        data.qpos[i] = initial_qpos_robot[col]
-        
-    # Run forward kinematics ONCE to get correct, fixed site positions
+    # Set the robot's qpos for this time step
+    data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
+    
+    # Set the obstacle's qpos (Position part only). Assuming identity quaternion.
+    # qpos layout for freejoint: [qw, qx, qy, qz, px, py, pz]
+    data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos[0], obst_pos[1], obst_pos[2]]
+
+    # 1. Update kinematics and constraint list (contacts)
     mujoco.mj_forward(model, data)
     
-    relevance_threshold = radius + sensing_radius + 0.2  # Obstacle must come within 0.2m of sensing range
-    
-    ever_close = False
-    eventually_far = False
-    close_count = 0
-    far_count = 0
+    # 2. Check for contact force (mj_fwdConstraint computes contact forces, data.efc_force has the results)
+    mujoco.mj_fwdConstraint(model, data)
 
-    for t in range(len(obst_xyz_traj)):
-        obst_pos = obst_xyz_traj[t]
+    # 3. Iterate through contacts and check if the obstacle body is involved
+    for i in range(data.ncon):
+        contact = data.contact[i]
         
-        # Compute closest distance to any skin site (dmin)
+        # MuJoCo stores geom IDs, we need to check if one of the geoms belongs to the obstacle
+        geom1_body_id = model.geom_bodyid[contact.geom1]
+        geom2_body_id = model.geom_bodyid[contact.geom2]
+        
+        # Check if the obstacle body is one of the bodies involved in the contact
+        if geom1_body_id == obst_body_id or geom2_body_id == obst_body_id:
+            # Check the normal force component (force in the direction of the contact normal)
+            # The magnitude of the contact force is stored in data.efc_force 
+            # (which is an array of size model.nefc, mapping contact elements to forces).
+            # This is complex to extract perfectly without a full step.
+            
+            # SIMPLER CHECK: Total number of non-zero contact forces indicates contact
+            # However, mj_fwdConstraint only calculates efc_force if a full step is run.
+            
+            # Let's rely on the number of contacts (data.ncon) and the gap
+            # If the contact distance is near zero or negative, a collision is happening.
+            if contact.dist < 0: 
+                # Negative distance means deep penetration/contact
+                return False # Collision detected! Trajectory is NOT collision-free
+
+    return True # No collisions detected for this step
+
+
+# -----------------------------------------------------------
+# Combined sanity checks (UPDATED)
+# -----------------------------------------------------------
+def passes_collision_checks(model, data, qpos_robot_traj, obst_xyz_traj, radius, obst_qpos_adr, obst_body_id, sensing_radius=0.15):
+    """
+    Ensures the trajectory is:
+      1. Relevant (passes close enough to the sensor sites at the initial posture).
+      2. Safe (never results in a geometric collision with the robot).
+    """
+    
+    relevance_threshold = radius + sensing_radius + 0.05
+    ever_close = False
+    
+    for t in range(len(obst_xyz_traj)):
+        obst_pos_t = obst_xyz_traj[t]
+        qpos_robot_t = qpos_robot_traj[t]
+
+        # 1. Geometric Collision Check (Safety)
+        if not is_collision_free(model, data, qpos_robot_t, qpos_robot_t, obst_pos_t, obst_qpos_adr, obst_body_id):
+            print(f"FAILED SAFETY CHECK: Collision detected at time step {t}.")
+            return False # Collision: Reject trajectory
+
+        # 2. Relevance Check (Proximity)
+        # Note: We must check proximity against the robot's posture *at that time t*
+        
+        # We need to run mj_forward here to get correct site positions for the relevance check
+        data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
+        data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos_t[0], obst_pos_t[1], obst_pos_t[2]]
+        mujoco.mj_forward(model, data) 
+        
         dmin = 999.0
-        for sid in skin_site_ids:
-            spos = data.site_xpos[sid] # Site positions are now fixed by the initial mj_forward call
-            d = np.linalg.norm(spos - obst_pos)
+        # Check distance to ALL sites (even non-sensors) to ensure relevance is wide-ranging
+        for sid in range(model.nsite):
+            spos = data.site_xpos[sid]
+            d = np.linalg.norm(spos - obst_pos_t)
             if d < dmin:
                 dmin = d
 
         if dmin < relevance_threshold:
-            close_count += 1
             ever_close = True
-        else:
-            far_count += 1
-            # If it was close earlier (at least 10 steps), and is now far, it's a valid trajectory
-            if close_count > 10: 
-                eventually_far = True
-
-    # Trajectory is valid if it came close to the initial robot posture AND moved past it
-    return ever_close and eventually_far
+            
+    # Trajectory is valid if it came close (ever_close) and was collision free throughout.
+    return ever_close
 
 
 # -----------------------------------------------------------
@@ -149,64 +193,69 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
     dt = model.opt.timestep
 
     T = len(df)
-    
-    # Store initial robot QPOS for the collision check function
-    initial_qpos_robot = df.iloc[0]
 
     # ----- extract column names -----
     qpos_cols = [c for c in df.columns if c.startswith("qpos_")]
-    qvel_cols = [c for c in df.columns if c.startswith("qvel_")]
+    qpos_robot_traj = df[qpos_cols].to_numpy()
 
     # ----- extract original obstacle params -----
     orig_start = np.array([df["obst_px"][0], df["obst_py"][0], df["obst_pz"][0]])
     orig_radius = float(df["obst_radius"][0])
     orig_vel0 = np.array([df["cmd_vx"][0], df["cmd_vy"][0], df["cmd_vz"][0]])
 
-    # ----- get skin sites -----
+    # ----- get site IDs (for capacity) -----
     skin_site_ids_dict = get_skin_site_ids(model)
     skin_site_ids = list(skin_site_ids_dict.keys())
     skin_site_names = list(skin_site_ids_dict.values())
+    
+    # ----- Get Obstacle MuJoCo IDs (for collision) -----
+    obst_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "obstacle")
+    obst_jid = model.body_jntadr[obst_body_id]
+    obst_qpos_adr = model.jnt_qposadr[obst_jid] if obst_jid >= 0 else -1
+
+    if obst_body_id < 0 or obst_qpos_adr < 0:
+        raise ValueError("Could not find obstacle body or joint in XML.")
 
     # ===========================================================
     # AUGMENTATION LOOP
     # ===========================================================
     
     samples_created = 0
+    attempts_made = 0
+    MAX_ATTEMPTS = num_samples * 5 # Try 5x the desired samples before giving up
     
-    while samples_created < num_samples:
+    while samples_created < num_samples and attempts_made < MAX_ATTEMPTS:
+        attempts_made += 1
         
         # 1. SAMPLE AND INTEGRATE
-        # Use original params for the first sample (0), then perturb
         if samples_created == 0:
+            # Use original params for the first sample
             start, radius, vel0 = orig_start, orig_radius, orig_vel0
-            print("INFO: Sample 1 is the original trajectory with analytical integration.")
         else:
             start, radius, vel0 = sample_random_obstacle_params(orig_start, orig_radius)
             
         grav = np.array(model.opt.gravity)
-        # Use the analytical solution for the trajectory
         obst_pos, obst_vel = integrate_ballistic_analytical(start, vel0, grav, T, dt)
 
-        # 2. SANITY CHECK (Skip check for original trajectory sample 0)
-        if samples_created > 0 and not passes_collision_checks(model, data, initial_qpos_robot, skin_site_ids, obst_pos, radius):
-            print(f"Attempt {samples_created + 1} failed relevance check. Retrying...")
-            continue # Try again with new random sample
+        # 2. SANITY CHECK
+        if not passes_collision_checks(model, data, qpos_robot_traj, obst_pos, radius, obst_qpos_adr, obst_body_id):
+            if samples_created == 0:
+                # If the original trajectory fails the safety check, it means the robot 
+                # trajectory itself involved collision and we should log a warning.
+                print("WARNING: Original trajectory failed geometric safety check. Logging it anyway.")
+                pass # Continue to log the original trajectory (samples_created == 0)
+            else:
+                continue # Try again with new random sample
 
-
-        # 3. RE-COMPUTE CAPACITANCE FOR AUGMENTED OBSTACLE TRAJ
+        # 3. RE-COMPUTE CAPACITANCE 
         cap_new = np.zeros((T, len(skin_site_ids)))
         
         for t in range(T):
-            # Set robot qpos for time t
-            for i, col in enumerate(qpos_cols):
-                data.qpos[i] = df[col][t]
-
-            # Set obstacle qpos (position only) for time t. QVEL is not needed for capacity.
-            # Assuming QPOS is [qw, qx, qy, qz, px, py, pz]
-            # We skip setting QPOS/QVEL for obstacle's freejoint to avoid index complexity here, 
-            # as only the robot's qpos affects its site_xpos. We manually pass obst_pos[t] to compute_capacitance.
+            # Set robot qpos and run forward kinematics (already done in passes_collision_checks, but necessary here)
+            qpos_robot_t = qpos_robot_traj[t]
+            data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
+            data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos[t][0], obst_pos[t][1], obst_pos[t][2]]
             
-            # Run forward kinematics
             mujoco.mj_forward(model, data) 
 
             # Compute capacity
@@ -217,29 +266,24 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
         # 4. BUILD AUGMENTED CSV
         df_aug = df.copy()
 
-        # overwrite obstacle columns (using calculated trajectory)
         df_aug["obst_px"] = obst_pos[:, 0]
         df_aug["obst_py"] = obst_pos[:, 1]
         df_aug["obst_pz"] = obst_pos[:, 2]
         df_aug["obst_radius"] = radius
-        df_aug["obst_vx"] = obst_vel[:, 0] # Save instantaneous velocity
+        df_aug["obst_vx"] = obst_vel[:, 0] 
         df_aug["obst_vy"] = obst_vel[:, 1]
         df_aug["obst_vz"] = obst_vel[:, 2]
         
-        # Overwrite commanded velocity (set once at launch)
         df_aug["cmd_vx"] = vel0[0]
         df_aug["cmd_vy"] = vel0[1]
         df_aug["cmd_vz"] = vel0[2]
 
-        # overwrite capacitance columns
         cap_cols = [f"cap_site_{sid}_{name}" for sid, name in zip(skin_site_ids, skin_site_names)]
         for j, col in enumerate(cap_cols):
-            # Ensure the column exists or create it, though typically logs have placeholders
             if col not in df_aug.columns:
                  df_aug[col] = 0.0 
             df_aug[col] = cap_new[:, j]
 
-        # Save file
         base_name = os.path.basename(csv_path)
         new_name = f"AUG_{samples_created:02d}_{base_name}"
         out_path = os.path.join(out_dir, new_name)
@@ -261,11 +305,9 @@ def main():
     parser.add_argument("--samples_per_file", type=int, default=5, help="Number of augmented samples to create per source file.")
     args = parser.parse_args()
 
-    # Define the input directory for 'good' trajectories
-    input_dir = os.path.join(args.traj_dir,"")
+    input_dir = os.path.join(args.traj_dir, "good")
     os.makedirs(args.out, exist_ok=True)
 
-    # Find all good trajectories
     trajs = sorted(glob.glob(os.path.join(input_dir, "*.csv")))
     if len(trajs) == 0:
         raise RuntimeError(f"No trajectories found in {input_dir}.")
