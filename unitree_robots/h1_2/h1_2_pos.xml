@@ -1,4 +1,4 @@
-<mujoco model="Unitree H1_2">
+<mujoco model="Unitree H1_2 Handless With Position Actuators">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
 
   <default>
