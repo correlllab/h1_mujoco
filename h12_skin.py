@@ -4,7 +4,7 @@ import pyvista as pv
 
 from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
-from unitree_interface import SimInterface
+# from unitree_interface import SimInterface
 import mujoco
 import numpy as np
 
@@ -56,7 +56,7 @@ def sim_loop():
     # initialize mujoco environment
     mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_obstacle_avoidance.xml')
     # initialize sdk interface
-    sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
+    # sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
     cap_skin = CapacitiveSkin(mujoco_env.model, mujoco_env.data)
     cap_skin.register_all_skin_sites()
 
