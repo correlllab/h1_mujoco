@@ -135,62 +135,66 @@ def integrate_ballistic(start, vel0, gravity, T, dt):
     return pos, vel
 
 
-# -----------------------------------------------------------
-# Structured obstacle sampling
-# -----------------------------------------------------------
 def sample_structured_obstacle(df, model, data, qpos_robot_traj,
-                               target_sids, t_lookup=0):
+                               target_sids, orig_start, orig_vel0, t_lookup=0):
     """
-    Sample a structured obstacle trajectory:
-    1) Pick a random skin site (torso/shoulder/arm sensors)
-    2) Get its world position at early time t_lookup
-    3) Spawn obstacle on a hemisphere in front of robot
-    4) Aim velocity toward chosen site + small noise
+    Improved structured sampling:
+      - sample start within ~1 m of original obstacle start
+      - target an upper torso skin site
+      - preserve velocity *direction toward target* but keep norm near original
+      - light noise to encourage variation but avoid nonsense trajectories
     """
 
     # -------------------------------
-    # 1) Choose target site
+    # 1) Pick a torso target site
     # -------------------------------
     sid = np.random.choice(target_sids)
 
-    # Set robot state at time t_lookup and forward
-    data.qpos[:qpos_robot_traj.shape[1]] = qpos_robot_traj[t_lookup]
+    nq = qpos_robot_traj.shape[1]
+    data.qpos[:nq] = qpos_robot_traj[t_lookup]
     mujoco.mj_forward(model, data)
 
     site_xyz = np.array(data.site_xpos[sid])
 
     # -------------------------------
-    # 2) Spawn location (in front of robot torso)
+    # 2) Sample start near original (±1 m)
     # -------------------------------
-    spawn_r = np.random.uniform(2.0, 4.0)
-    az = np.random.uniform(-np.pi / 2, np.pi / 2)
-    el = np.random.uniform(-0.2, 0.4)
+    start = orig_start + np.random.uniform(-1.0, 1.0, size=3)
 
-    spawn_local = np.array([
-        spawn_r * np.cos(el) * np.cos(az),
-        spawn_r * np.cos(el) * np.sin(az),
-        spawn_r * np.sin(el) + 1.0
-    ])
-
-    pelvis_xyz = data.xpos[1]
-    spawn_world = pelvis_xyz + spawn_local
+    # Don't allow it to spawn underground
+    start[2] = max(start[2], 0.5)
 
     # -------------------------------
-    # 3) Aim toward target site
+    # 3) Compute direction toward chosen site
     # -------------------------------
-    direction = site_xyz - spawn_world
-    direction /= np.linalg.norm(direction)
-
-    speed = np.random.uniform(4.0, 10.0)
-    vel0 = direction * speed + 0.2 * np.random.randn(3)
+    direction = site_xyz - start
+    dnorm = np.linalg.norm(direction)
+    if dnorm < 1e-6:
+        direction = np.array([1.0, 0.0, 0.2])  # fallback
+        dnorm = 1.0
+    direction /= dnorm
 
     # -------------------------------
-    # 4) Radius perturbation
+    # 4) Preserve original speed norm
+    # -------------------------------
+    orig_speed = np.linalg.norm(orig_vel0)
+
+    # keep speed within ±20%
+    speed = orig_speed * np.random.uniform(0.8, 1.2)
+
+    # -------------------------------
+    # 5) Final velocity with small angular noise
+    # -------------------------------
+    noise = 0.15 * np.random.randn(3)
+    vel0 = direction * speed + noise
+
+    # -------------------------------
+    # 6) Perturb radius slightly (but keep similar)
     # -------------------------------
     orig_radius = float(df["obst_radius"][0])
     radius = orig_radius * np.random.uniform(0.9, 1.1)
 
-    return spawn_world, radius, vel0, sid
+    return start, radius, vel0, sid
 
 
 # -----------------------------------------------------------
@@ -198,29 +202,34 @@ def sample_structured_obstacle(df, model, data, qpos_robot_traj,
 # -----------------------------------------------------------
 def trajectory_is_relevant(model, data, qpos_robot_traj,
                            obst_pos, target_sid, radius):
-    """
-    Trajectory is relevant if the obstacle gets near the chosen target site.
-    """
+
+    nq = qpos_robot_traj.shape[1]
+    T = obst_pos.shape[0]
 
     min_dist = 999
-
-    T = obst_pos.shape[0]
-    nq = qpos_robot_traj.shape[1]
+    end_dist = None
 
     for t in range(T):
         data.qpos[:nq] = qpos_robot_traj[t]
         data.qpos[-7:-4] = obst_pos[t]
-
         mujoco.mj_forward(model, data)
-        site_xyz = np.array(data.site_xpos[target_sid])
 
+        site_xyz = np.array(data.site_xpos[target_sid])
         d = np.linalg.norm(site_xyz - obst_pos[t])
         if d < min_dist:
             min_dist = d
 
-    # Threshold ≈ radius + safety margin
-    return min_dist < (radius + 0.15)
+    # distance at final timestep
+    data.qpos[:nq] = qpos_robot_traj[-1]
+    data.qpos[-7:-4] = obst_pos[-1]
+    mujoco.mj_forward(model, data)
+    end_dist = np.linalg.norm(
+        np.array(data.site_xpos[target_sid]) - obst_pos[-1]
+    )
 
+    # close enough at some point + far enough at the end
+    close_thresh = radius + 0.15
+    return (min_dist < close_thresh) and (end_dist > 0.3)
 
 # -----------------------------------------------------------
 # Main augmentation for one trajectory
@@ -263,7 +272,7 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
     # ---------------------------------
     samples_created = 0
     attempts = 0
-    MAX_ATTEMPTS = num_samples * 40
+    MAX_ATTEMPTS = num_samples * 200
 
     # ---------------------------------
     # Robot collision check
@@ -272,10 +281,13 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
 
     while samples_created < num_samples and attempts < MAX_ATTEMPTS:
         attempts += 1
-        print(f"Attempt {attempts}...", end=' ', flush=True)
+        if attempts % 100 == 0:
+            print(f"  Attempt {attempts}/{MAX_ATTEMPTS}...")
         # 1) Sample obstacle parameters
+        orig_start = np.array([df["obst_px"][0], df["obst_py"][0], df["obst_pz"][0]])
+        orig_vel0 = np.array([df["cmd_vx"][0], df["cmd_vy"][0], df["cmd_vz"][0]])
         start, radius, vel0, target_sid = sample_structured_obstacle(
-            df, model, data, qpos_robot_traj, skin_sids
+            df, model, data, qpos_robot_traj, skin_sids, orig_start, orig_vel0
         )
 
         # 2) Integrate ballistic traj
@@ -305,7 +317,7 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
                                   obst_qpos_adr,
                                   obst_body_id,
                                   spheres):
-                print("  ✗ Collision detected, resampling...")
+                # print("  ✗ Collision detected, resampling...")
                 coll = True
                 break
             else:
@@ -359,6 +371,7 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
 
             print(f"✓ Wrote {fname}")
             samples_created += 1
+            print(f"Created {samples_created}/{num_samples} augmentations so far.")
 
     print(f"Done. Created {samples_created}/{num_samples} augmentations.")
 
@@ -372,7 +385,7 @@ def main():
     parser.add_argument("--xml", required=True)
     parser.add_argument("--traj_dir", required=True)
     parser.add_argument("--out", default="augmented")
-    parser.add_argument("--samples_per_file", type=int, default=1)
+    parser.add_argument("--samples_per_file", type=int, default=3)
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
