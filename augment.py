@@ -7,15 +7,95 @@ import pandas as pd
 import mujoco
 from collections import OrderedDict
 
-# Define a minimum force threshold for a collision to be considered 'actual contact'
-COLLISION_FORCE_THRESHOLD = 1e-6 
+
+def compute_link_bounding_spheres(model):
+    spheres = []
+    for body_id in range(model.nbody):
+        geoms = np.where(model.geom_bodyid == body_id)[0]
+        if len(geoms) == 0:
+            spheres.append(None)
+            continue
+
+        pts = []
+        for g in geoms:
+            xyz = model.geom_pos[g]
+            size = model.geom_size[g]
+            r = np.max(size) * 1.25
+            pts.append((xyz, r))
+
+        centers = np.array([p[0] for p in pts])
+        center = np.mean(centers, axis=0)
+        radius = np.max([np.linalg.norm(p[0] - center) + p[1] for p in pts])
+        spheres.append((center, radius))
+    return spheres
+
+def is_robot_collision(model, data, qpos, obst_pos, obst_qpos_adr,
+                       obst_body_id, spheres):
+    """
+    Efficient hybrid collision check:
+    1) Broad phase: link bounding spheres
+    2) Narrow phase: geom AABB
+    3) Final real contact check (MuJoCo)
+    """
+
+    # --- Update robot and obstacle pose ---
+    nq = qpos.shape[0]
+    data.qpos[:nq] = qpos
+    data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1,0,0,0,
+                                                obst_pos[0], obst_pos[1], obst_pos[2]]
+    mujoco.mj_forward(model, data)
+
+    # -------------------------------
+    # Layer 1: broad phase sphere test
+    # -------------------------------
+    for body_id, sph in enumerate(spheres):
+        if sph is None:
+            continue
+        center_local, rad = sph
+        center_world = data.xpos[body_id] + center_local
+        d = np.linalg.norm(center_world - obst_pos)
+        if d < rad:
+            # Potential collision → continue to narrow phase
+            break
+    else:
+        # No sphere overlap with ANY body → safe
+        return False
+
+    # -------------------------------
+    # Layer 2: AABB geom tests
+    # -------------------------------
+    for g in range(model.ngeom):
+        if model.geom_bodyid[g] == obst_body_id:
+            continue  # skip obstacle itself
+        pos = data.geom_xpos[g]
+        r = model.geom_size[g]
+        d = np.maximum(np.abs(obst_pos - pos) - r, 0.0)
+        if np.linalg.norm(d) < 0.01:
+            # Very possible collision → go to final test
+            break
+    else:
+        return False
+
+    # -------------------------------
+    # Layer 3: True contact test
+    # -------------------------------
+    for i in range(data.ncon):
+        c = data.contact[i]
+        b1 = model.geom_bodyid[c.geom1]
+        b2 = model.geom_bodyid[c.geom2]
+        if b1 == obst_body_id or b2 == obst_body_id:
+            if c.dist < 0.0:
+                return True
+    return False
+
 
 # -----------------------------------------------------------
 # Capacitance function
 # -----------------------------------------------------------
-def compute_capacitance(sensor_pos, obst_pos, obst_radius, eps=1.0, sensing_radius=0.15):
+def compute_capacitance(sensor_pos, obst_pos, obst_radius,
+                        eps=1.0, sensing_radius=0.15):
     dx, dy, dz = sensor_pos - obst_pos
-    d = np.sqrt(dx*dx + dy*dy + dz*dz)
+    d = np.sqrt(dx * dx + dy * dy + dz * dz)
 
     if d > sensing_radius + obst_radius:
         return -1.0
@@ -24,6 +104,9 @@ def compute_capacitance(sensor_pos, obst_pos, obst_radius, eps=1.0, sensing_radi
     return eps / effective_d
 
 
+# -----------------------------------------------------------
+# Skin site retrieval
+# -----------------------------------------------------------
 def get_skin_site_ids(model):
     ids = OrderedDict()
     for i in range(model.nsite):
@@ -34,285 +117,272 @@ def get_skin_site_ids(model):
 
 
 # -----------------------------------------------------------
-# Ballistic integration (Analytical Solution)
+# Ballistic integration (analytical)
 # -----------------------------------------------------------
-def integrate_ballistic_analytical(start, vel0, gravity, T, dt):
-    """
-    Calculates the exact ballistic position and velocity at each timestep
-    using the analytical solution: P(t) = P0 + V0*t + 0.5*g*t^2
-    """
-    start = np.asarray(start).reshape(1, 3)
-    vel0  = np.asarray(vel0).reshape(1, 3)
-    gravity = np.asarray(gravity).reshape(1, 3)
-    
+def integrate_ballistic(start, vel0, gravity, T, dt):
+    start = np.asarray(start)
+    vel0 = np.asarray(vel0)
+    gravity = np.asarray(gravity)
+
     pos = np.zeros((T, 3))
     vel = np.zeros((T, 3))
 
-    for t_step in range(T):
-        t = t_step * dt
-        
-        # Position: P(t) = P0 + V0*t + 0.5*g*t**2
-        pos[t_step] = start + vel0 * t + 0.5 * gravity * t**2
-        
-        # Velocity: V(t) = V0 + g*t
-        vel[t_step] = vel0 + gravity * t
-        
-    return pos.squeeze(), vel.squeeze()
+    for t in range(T):
+        tt = t * dt
+        pos[t] = start + vel0 * tt + 0.5 * gravity * tt * tt
+        vel[t] = vel0 + gravity * tt
+
+    return pos, vel
 
 
 # -----------------------------------------------------------
-# Random sampling helpers
+# Structured obstacle sampling
 # -----------------------------------------------------------
-def random_unit_vector():
-    v = np.random.randn(3)
-    return v / np.linalg.norm(v)
-
-
-def sample_random_obstacle_params(orig_start, orig_radius):
+def sample_structured_obstacle(df, model, data, qpos_robot_traj,
+                               target_sids, t_lookup=0):
     """
-    Samples perturbed obstacle start state, radius, and velocity.
+    Sample a structured obstacle trajectory:
+    1) Pick a random skin site (torso/shoulder/arm sensors)
+    2) Get its world position at early time t_lookup
+    3) Spawn obstacle on a hemisphere in front of robot
+    4) Aim velocity toward chosen site + small noise
     """
-    # --- position perturbation (±50 cm cube around original start)
-    start = orig_start + np.random.uniform(-0.5, 0.5, size=3)
 
-    # --- radius perturbation (±25%)
-    radius = float(orig_radius) * np.random.uniform(0.75, 1.25)
+    # -------------------------------
+    # 1) Choose target site
+    # -------------------------------
+    sid = np.random.choice(target_sids)
 
-    # --- speed: 1.0–8.0 m/s
-    speed = np.random.uniform(1.0, 8.0)
-
-    # --- random direction (normalized)
-    direction = random_unit_vector()
-
-    return start, radius, direction * speed
-
-
-# -----------------------------------------------------------
-# GEOMETRIC COLLISION CHECK (NEW)
-# -----------------------------------------------------------
-def is_collision_free(model, data, initial_qpos_robot, qpos_robot_t, obst_pos, obst_qpos_adr, obst_body_id):
-    """
-    Checks if the obstacle is in contact with the robot at a given time step.
-    Returns True if contact force > COLLISION_FORCE_THRESHOLD, False otherwise.
-    """
-    
-    # Set the robot's qpos for this time step
-    data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
-    
-    # Set the obstacle's qpos (Position part only). Assuming identity quaternion.
-    # qpos layout for freejoint: [qw, qx, qy, qz, px, py, pz]
-    data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos[0], obst_pos[1], obst_pos[2]]
-
-    # 1. Update kinematics and constraint list (contacts)
+    # Set robot state at time t_lookup and forward
+    data.qpos[:qpos_robot_traj.shape[1]] = qpos_robot_traj[t_lookup]
     mujoco.mj_forward(model, data)
-    
-    # 2. Check for contact force (mj_fwdConstraint computes contact forces, data.efc_force has the results)
-    mujoco.mj_fwdConstraint(model, data)
 
-    # 3. Iterate through contacts and check if the obstacle body is involved
-    for i in range(data.ncon):
-        contact = data.contact[i]
-        
-        # MuJoCo stores geom IDs, we need to check if one of the geoms belongs to the obstacle
-        geom1_body_id = model.geom_bodyid[contact.geom1]
-        geom2_body_id = model.geom_bodyid[contact.geom2]
-        
-        # Check if the obstacle body is one of the bodies involved in the contact
-        if geom1_body_id == obst_body_id or geom2_body_id == obst_body_id:
-            # Check the normal force component (force in the direction of the contact normal)
-            # The magnitude of the contact force is stored in data.efc_force 
-            # (which is an array of size model.nefc, mapping contact elements to forces).
-            # This is complex to extract perfectly without a full step.
-            
-            # SIMPLER CHECK: Total number of non-zero contact forces indicates contact
-            # However, mj_fwdConstraint only calculates efc_force if a full step is run.
-            
-            # Let's rely on the number of contacts (data.ncon) and the gap
-            # If the contact distance is near zero or negative, a collision is happening.
-            if contact.dist < 0: 
-                # Negative distance means deep penetration/contact
-                return False # Collision detected! Trajectory is NOT collision-free
+    site_xyz = np.array(data.site_xpos[sid])
 
-    return True # No collisions detected for this step
+    # -------------------------------
+    # 2) Spawn location (in front of robot torso)
+    # -------------------------------
+    spawn_r = np.random.uniform(2.0, 4.0)
+    az = np.random.uniform(-np.pi / 2, np.pi / 2)
+    el = np.random.uniform(-0.2, 0.4)
+
+    spawn_local = np.array([
+        spawn_r * np.cos(el) * np.cos(az),
+        spawn_r * np.cos(el) * np.sin(az),
+        spawn_r * np.sin(el) + 1.0
+    ])
+
+    pelvis_xyz = data.xpos[1]
+    spawn_world = pelvis_xyz + spawn_local
+
+    # -------------------------------
+    # 3) Aim toward target site
+    # -------------------------------
+    direction = site_xyz - spawn_world
+    direction /= np.linalg.norm(direction)
+
+    speed = np.random.uniform(4.0, 10.0)
+    vel0 = direction * speed + 0.2 * np.random.randn(3)
+
+    # -------------------------------
+    # 4) Radius perturbation
+    # -------------------------------
+    orig_radius = float(df["obst_radius"][0])
+    radius = orig_radius * np.random.uniform(0.9, 1.1)
+
+    return spawn_world, radius, vel0, sid
 
 
 # -----------------------------------------------------------
-# Combined sanity checks (UPDATED)
+# Proximity relevance filter
 # -----------------------------------------------------------
-def passes_collision_checks(model, data, qpos_robot_traj, obst_xyz_traj, radius, obst_qpos_adr, obst_body_id, sensing_radius=0.15):
+def trajectory_is_relevant(model, data, qpos_robot_traj,
+                           obst_pos, target_sid, radius):
     """
-    Ensures the trajectory is:
-      1. Relevant (passes close enough to the sensor sites at the initial posture).
-      2. Safe (never results in a geometric collision with the robot).
+    Trajectory is relevant if the obstacle gets near the chosen target site.
     """
-    
-    relevance_threshold = radius + sensing_radius + 0.05
-    ever_close = False
-    
-    for t in range(len(obst_xyz_traj)):
-        obst_pos_t = obst_xyz_traj[t]
-        qpos_robot_t = qpos_robot_traj[t]
 
-        # 1. Geometric Collision Check (Safety)
-        if not is_collision_free(model, data, qpos_robot_t, qpos_robot_t, obst_pos_t, obst_qpos_adr, obst_body_id):
-            print(f"FAILED SAFETY CHECK: Collision detected at time step {t}.")
-            return False # Collision: Reject trajectory
+    min_dist = 999
 
-        # 2. Relevance Check (Proximity)
-        # Note: We must check proximity against the robot's posture *at that time t*
-        
-        # We need to run mj_forward here to get correct site positions for the relevance check
-        data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
-        data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos_t[0], obst_pos_t[1], obst_pos_t[2]]
-        mujoco.mj_forward(model, data) 
-        
-        dmin = 999.0
-        # Check distance to ALL sites (even non-sensors) to ensure relevance is wide-ranging
-        for sid in range(model.nsite):
-            spos = data.site_xpos[sid]
-            d = np.linalg.norm(spos - obst_pos_t)
-            if d < dmin:
-                dmin = d
+    T = obst_pos.shape[0]
+    nq = qpos_robot_traj.shape[1]
 
-        if dmin < relevance_threshold:
-            ever_close = True
-            
-    # Trajectory is valid if it came close (ever_close) and was collision free throughout.
-    return ever_close
+    for t in range(T):
+        data.qpos[:nq] = qpos_robot_traj[t]
+        data.qpos[-7:-4] = obst_pos[t]
+
+        mujoco.mj_forward(model, data)
+        site_xyz = np.array(data.site_xpos[target_sid])
+
+        d = np.linalg.norm(site_xyz - obst_pos[t])
+        if d < min_dist:
+            min_dist = d
+
+    # Threshold ≈ radius + safety margin
+    return min_dist < (radius + 0.15)
 
 
 # -----------------------------------------------------------
-# MAIN augmentation
+# Main augmentation for one trajectory
 # -----------------------------------------------------------
 def augment_one(csv_path, xml_path, out_dir, num_samples):
+
     print(f"\n=== AUGMENTING {csv_path} ===")
 
     df = pd.read_csv(csv_path)
     model = mujoco.MjModel.from_xml_path(xml_path)
     data = mujoco.MjData(model)
     dt = model.opt.timestep
+    gravity = np.array(model.opt.gravity)
 
-    T = len(df)
-
-    # ----- extract column names -----
+    # ---------------------------------
+    # Extract robot trajectory
+    # ---------------------------------
     qpos_cols = [c for c in df.columns if c.startswith("qpos_")]
     qpos_robot_traj = df[qpos_cols].to_numpy()
+    T = len(df)
 
-    # ----- extract original obstacle params -----
-    orig_start = np.array([df["obst_px"][0], df["obst_py"][0], df["obst_pz"][0]])
-    orig_radius = float(df["obst_radius"][0])
-    orig_vel0 = np.array([df["cmd_vx"][0], df["cmd_vy"][0], df["cmd_vz"][0]])
+    # ---------------------------------
+    # Skin sites
+    # ---------------------------------
+    skin_sites = get_skin_site_ids(model)
+    skin_sids = list(skin_sites.keys())
+    skin_names = list(skin_sites.values())
 
-    # ----- get site IDs (for capacity) -----
-    skin_site_ids_dict = get_skin_site_ids(model)
-    skin_site_ids = list(skin_site_ids_dict.keys())
-    skin_site_names = list(skin_site_ids_dict.values())
-    
-    # ----- Get Obstacle MuJoCo IDs (for collision) -----
-    obst_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "obstacle")
+    # ---------------------------------
+    # Obstacle freejoint info
+    # ---------------------------------
+    obst_body_id = mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_BODY, "obstacle"
+    )
     obst_jid = model.body_jntadr[obst_body_id]
-    obst_qpos_adr = model.jnt_qposadr[obst_jid] if obst_jid >= 0 else -1
+    obst_qpos_adr = model.jnt_qposadr[obst_jid]
 
-    if obst_body_id < 0 or obst_qpos_adr < 0:
-        raise ValueError("Could not find obstacle body or joint in XML.")
-
-    # ===========================================================
-    # AUGMENTATION LOOP
-    # ===========================================================
-    
+    # ---------------------------------
+    # Augmentation loop
+    # ---------------------------------
     samples_created = 0
-    attempts_made = 0
-    MAX_ATTEMPTS = num_samples * 500 # Try 5x the desired samples before giving up
-    
-    while samples_created < num_samples and attempts_made < MAX_ATTEMPTS:
-        attempts_made += 1
-        
-        # 1. SAMPLE AND INTEGRATE
-        if samples_created == 0:
-            # Use original params for the first sample
-            start, radius, vel0 = orig_start, orig_radius, orig_vel0
-        else:
-            start, radius, vel0 = sample_random_obstacle_params(orig_start, orig_radius)
-            
-        grav = np.array(model.opt.gravity)
-        obst_pos, obst_vel = integrate_ballistic_analytical(start, vel0, grav, T, dt)
+    attempts = 0
+    MAX_ATTEMPTS = num_samples * 40
 
-        # 2. SANITY CHECK
-        if not passes_collision_checks(model, data, qpos_robot_traj, obst_pos, radius, obst_qpos_adr, obst_body_id):
-            print("WARNING: Original trajectory failed geometric safety check.")
-            continue # Try again with new random sample
+    # ---------------------------------
+    # Robot collision check
+    # ---------------------------------
+    spheres = compute_link_bounding_spheres(model)
 
-        # 3. RE-COMPUTE CAPACITANCE 
-        cap_new = np.zeros((T, len(skin_site_ids)))
-        
+    while samples_created < num_samples and attempts < MAX_ATTEMPTS:
+        attempts += 1
+        print(f"Attempt {attempts}...", end=' ', flush=True)
+        # 1) Sample obstacle parameters
+        start, radius, vel0, target_sid = sample_structured_obstacle(
+            df, model, data, qpos_robot_traj, skin_sids
+        )
+
+        # 2) Integrate ballistic traj
+        obst_pos, obst_vel = integrate_ballistic(
+            start, vel0, gravity, T, dt
+        )
+
+        # 3) Relevance check
+        if not trajectory_is_relevant(
+            model, data, qpos_robot_traj,
+            obst_pos, target_sid, radius
+        ):
+            continue
+
+        # 4) Compute capacitance
+        cap_new = np.zeros((T, len(skin_sids)))
+
+        coll = False
+
         for t in range(T):
-            # Set robot qpos and run forward kinematics (already done in passes_collision_checks, but necessary here)
-            qpos_robot_t = qpos_robot_traj[t]
-            data.qpos[:qpos_robot_t.shape[0]] = qpos_robot_t
-            data.qpos[obst_qpos_adr:obst_qpos_adr+7] = [1, 0, 0, 0, obst_pos[t][0], obst_pos[t][1], obst_pos[t][2]]
-            
-            mujoco.mj_forward(model, data) 
+            nq = qpos_robot_traj.shape[1]
+            data.qpos[:nq] = qpos_robot_traj[t]
 
-            # Compute capacity
-            for k, sid in enumerate(skin_site_ids):
+            if is_robot_collision(model, data,
+                                  qpos_robot_traj[t],
+                                  obst_pos[t],
+                                  obst_qpos_adr,
+                                  obst_body_id,
+                                  spheres):
+                print("  ✗ Collision detected, resampling...")
+                coll = True
+                break
+            else:
+                pass
+
+            # obstacle pose
+            data.qpos[obst_qpos_adr:obst_qpos_adr + 7] = [
+                1, 0, 0, 0,
+                obst_pos[t][0],
+                obst_pos[t][1],
+                obst_pos[t][2],
+            ]
+            mujoco.mj_forward(model, data)
+
+            for k, sid in enumerate(skin_sids):
                 spos = np.array(data.site_xpos[sid])
-                cap_new[t, k] = compute_capacitance(spos, obst_pos[t], radius)
+                cap_new[t, k] = compute_capacitance(
+                    spos, obst_pos[t], radius
+                )
 
-        # 4. BUILD AUGMENTED CSV
-        df_aug = df.copy()
+        # 5) Build augmented CSV
+        if not coll:
+            df_aug = df.copy()
 
-        df_aug["obst_px"] = obst_pos[:, 0]
-        df_aug["obst_py"] = obst_pos[:, 1]
-        df_aug["obst_pz"] = obst_pos[:, 2]
-        df_aug["obst_radius"] = radius
-        df_aug["obst_vx"] = obst_vel[:, 0] 
-        df_aug["obst_vy"] = obst_vel[:, 1]
-        df_aug["obst_vz"] = obst_vel[:, 2]
-        
-        df_aug["cmd_vx"] = vel0[0]
-        df_aug["cmd_vy"] = vel0[1]
-        df_aug["cmd_vz"] = vel0[2]
+            df_aug["obst_px"] = obst_pos[:, 0]
+            df_aug["obst_py"] = obst_pos[:, 1]
+            df_aug["obst_pz"] = obst_pos[:, 2]
+            df_aug["obst_radius"] = radius
 
-        cap_cols = [f"cap_site_{sid}_{name}" for sid, name in zip(skin_site_ids, skin_site_names)]
-        for j, col in enumerate(cap_cols):
-            if col not in df_aug.columns:
-                 df_aug[col] = 0.0 
-            df_aug[col] = cap_new[:, j]
+            df_aug["obst_vx"] = obst_vel[:, 0]
+            df_aug["obst_vy"] = obst_vel[:, 1]
+            df_aug["obst_vz"] = obst_vel[:, 2]
 
-        base_name = os.path.basename(csv_path)
-        new_name = f"AUG_{samples_created:02d}_{base_name}"
-        out_path = os.path.join(out_dir, new_name)
-        
-        df_aug.to_csv(out_path, index=False)
-        print(f"✓ Wrote augmented CSV -> {new_name}")
-        
-        samples_created += 1
+            df_aug["cmd_vx"] = vel0[0]
+            df_aug["cmd_vy"] = vel0[1]
+            df_aug["cmd_vz"] = vel0[2]
+
+            # Capacitance columns — consistent naming
+            cap_cols = [
+                f"cap_site_{sid}_{skin_sites[sid]}"
+                for sid in skin_sids
+            ]
+            for j, col in enumerate(cap_cols):
+                df_aug[col] = cap_new[:, j]
+
+            # Save file
+            base = os.path.basename(csv_path)
+            fname = f"AUG_{samples_created:02d}_{base}"
+            out_path = os.path.join(out_dir, fname)
+            df_aug.to_csv(out_path, index=False)
+
+            print(f"✓ Wrote {fname}")
+            samples_created += 1
+
+    print(f"Done. Created {samples_created}/{num_samples} augmentations.")
 
 
 # -----------------------------------------------------------
-# Entry point
+# Entry
 # -----------------------------------------------------------
 def main():
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--xml", required=True, help="Path to the MuJoCo XML file (e.g., avoid_h12.xml).")
-    parser.add_argument("--traj_dir", required=True, help="Path to the parent directory (e.g., traj_logs).")
-    parser.add_argument("--out", default="augmented", help="Output directory for augmented files.")
-    parser.add_argument("--samples_per_file", type=int, default=1, help="Number of augmented samples to create per source file.")
+    parser.add_argument("--xml", required=True)
+    parser.add_argument("--traj_dir", required=True)
+    parser.add_argument("--out", default="augmented")
+    parser.add_argument("--samples_per_file", type=int, default=1)
     args = parser.parse_args()
 
-    input_dir = os.path.join(args.traj_dir, "good")
     os.makedirs(args.out, exist_ok=True)
 
-    trajs = sorted(glob.glob(os.path.join(input_dir, "*.csv")))
+    trajs = sorted(glob.glob(os.path.join(args.traj_dir, "*.csv")))
     if len(trajs) == 0:
-        raise RuntimeError(f"No trajectories found in {input_dir}.")
-
-    print(f"Found {len(trajs)} source trajectories. Creating {args.samples_per_file} augmentations for each.")
+        raise RuntimeError(f"No CSV files found in {args.traj_dir}")
 
     for traj_path in trajs:
         augment_one(traj_path, args.xml, args.out, args.samples_per_file)
-
-    print("\nBatch augmentation complete.")
 
 
 if __name__ == "__main__":
