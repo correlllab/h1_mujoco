@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import mujoco
 from collections import OrderedDict
-
+import json
+import pickle
 
 def compute_link_bounding_spheres(model):
     spheres = []
@@ -234,7 +235,7 @@ def trajectory_is_relevant(model, data, qpos_robot_traj,
 # -----------------------------------------------------------
 # Main augmentation for one trajectory
 # -----------------------------------------------------------
-def augment_one(csv_path, xml_path, out_dir, num_samples):
+def augment_one(csv_path, xml_path, out_dir, num_samples, tracker):
 
     print(f"\n=== AUGMENTING {csv_path} ===")
 
@@ -272,12 +273,15 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
     # ---------------------------------
     samples_created = 0
     attempts = 0
-    MAX_ATTEMPTS = num_samples * 200
+    MAX_ATTEMPTS = num_samples * 400
 
     # ---------------------------------
     # Robot collision check
     # ---------------------------------
     spheres = compute_link_bounding_spheres(model)
+    
+    csv_name = os.path.basename(csv_path)
+    tracker[csv_name] = 0
 
     while samples_created < num_samples and attempts < MAX_ATTEMPTS:
         attempts += 1
@@ -371,6 +375,7 @@ def augment_one(csv_path, xml_path, out_dir, num_samples):
 
             print(f"✓ Wrote {fname}")
             samples_created += 1
+            tracker[csv_name] += 1
             print(f"Created {samples_created}/{num_samples} augmentations so far.")
 
     print(f"Done. Created {samples_created}/{num_samples} augmentations.")
@@ -385,7 +390,7 @@ def main():
     parser.add_argument("--xml", required=True)
     parser.add_argument("--traj_dir", required=True)
     parser.add_argument("--out", default="augmented")
-    parser.add_argument("--samples_per_file", type=int, default=3)
+    parser.add_argument("--samples_per_file", type=int, default=100)
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -394,8 +399,17 @@ def main():
     if len(trajs) == 0:
         raise RuntimeError(f"No CSV files found in {args.traj_dir}")
 
+    tracker = {}
+    tracker_json = os.path.join(args.out, "augmentation_tracker.json")
     for traj_path in trajs:
-        augment_one(traj_path, args.xml, args.out, args.samples_per_file)
+        augment_one(traj_path, args.xml, args.out, args.samples_per_file, tracker)
+    print(tracker)
+    with open(tracker_json, 'w') as f:
+        json.dump(tracker, f, indent=4)
+    # also write as pkl
+    tracker_pkl = os.path.join(args.out, "augmentation_tracker.pkl")
+    with open(tracker_pkl, 'wb') as f:
+        pickle.dump(tracker, f)
 
 
 if __name__ == "__main__":
