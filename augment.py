@@ -287,6 +287,11 @@ def augment_one(csv_path, xml_path, out_dir, num_samples, tracker):
         attempts += 1
         if attempts % 100 == 0:
             print(f"  Attempt {attempts}/{MAX_ATTEMPTS}...")
+        
+        if attempts > 10000 and samples_created == 0:
+            print("  Too many attempts without successful sample creation, stopping augmentation for this file.")
+            break
+
         # 1) Sample obstacle parameters
         orig_start = np.array([df["obst_px"][0], df["obst_py"][0], df["obst_pz"][0]])
         orig_vel0 = np.array([df["cmd_vx"][0], df["cmd_vy"][0], df["cmd_vz"][0]])
