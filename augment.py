@@ -235,7 +235,7 @@ def trajectory_is_relevant(model, data, qpos_robot_traj,
 # -----------------------------------------------------------
 # Main augmentation for one trajectory
 # -----------------------------------------------------------
-def augment_one(csv_path, xml_path, out_dir, num_samples, tracker):
+def augment_one(csv_path, xml_path, out_dir, num_samples, tracker, tracker_data):
 
     print(f"\n=== AUGMENTING {csv_path} ===")
 
@@ -273,19 +273,30 @@ def augment_one(csv_path, xml_path, out_dir, num_samples, tracker):
     # ---------------------------------
     samples_created = 0
     attempts = 0
-    MAX_ATTEMPTS = num_samples * 400
+    MAX_ATTEMPTS = num_samples * 4000
+    # Initialize/Resume based on tracker
+    csv_name = os.path.basename(csv_path)
+    initial_samples_created = tracker_data.get(csv_name, 0)
+    if initial_samples_created == 0 and csv_name in tracker_data and num_samples > 0:
+        # If the tracker says 0 samples created AND we are looking to create more, skip it.
+        # If num_samples is 0, we still process to update the tracker state.
+        tracker[csv_name] = initial_samples_created
+        print(f"Skipping {csv_name}: Previously recorded 0 successful augmentations.")
+        return
+        
+    samples_created = initial_samples_created
+    tracker[csv_name] = initial_samples_created
 
     # ---------------------------------
     # Robot collision check
     # ---------------------------------
     spheres = compute_link_bounding_spheres(model)
     
-    csv_name = os.path.basename(csv_path)
-    tracker[csv_name] = 0
+
 
     while samples_created < num_samples and attempts < MAX_ATTEMPTS:
         attempts += 1
-        if attempts % 100 == 0:
+        if attempts % 1000 == 0:
             print(f"  Attempt {attempts}/{MAX_ATTEMPTS}...")
         
         if attempts > 10000 and samples_created == 0:
@@ -396,6 +407,8 @@ def main():
     parser.add_argument("--traj_dir", required=True)
     parser.add_argument("--out", default="augmented")
     parser.add_argument("--samples_per_file", type=int, default=100)
+    parser.add_argument("--tracker_path", type=str, default=None,
+                    help="Path to previous augmentation_tracker.json/pkl to resume work.")
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -404,17 +417,35 @@ def main():
     if len(trajs) == 0:
         raise RuntimeError(f"No CSV files found in {args.traj_dir}")
 
+    # 1. Load existing tracker data if provided
+    tracker_data = {}
+    if args.tracker_path:
+        tracker_path = args.tracker_path
+        if tracker_path.endswith('.json') and os.path.exists(tracker_path):
+            with open(tracker_path, 'r') as f:
+                tracker_data = json.load(f)
+            print(f"Loaded existing tracker data from {tracker_path}.")
+        elif tracker_path.endswith('.pkl') and os.path.exists(tracker_path):
+            with open(tracker_path, 'rb') as f:
+                tracker_data = pickle.load(f)
+            print(f"Loaded existing tracker data from {tracker_path}.")
+        else:
+            print(f"Warning: Tracker file not found at {tracker_path}. Starting fresh.")
+    
+    # Ensure all file names in tracker data are base names
+    tracker_data = {os.path.basename(k): v for k, v in tracker_data.items()}
+
     tracker = {}
     tracker_json = os.path.join(args.out, "augmentation_tracker.json")
     for traj_path in trajs:
-        augment_one(traj_path, args.xml, args.out, args.samples_per_file, tracker)
+        augment_one(traj_path, args.xml, args.out, args.samples_per_file, tracker, tracker_data)
+        with open(tracker_json, 'w') as f:
+            json.dump(tracker, f, indent=4)
+        # also write as pkl
+        tracker_pkl = os.path.join(args.out, "augmentation_tracker.pkl")
+        with open(tracker_pkl, 'wb') as f:
+            pickle.dump(tracker, f)
     print(tracker)
-    with open(tracker_json, 'w') as f:
-        json.dump(tracker, f, indent=4)
-    # also write as pkl
-    tracker_pkl = os.path.join(args.out, "augmentation_tracker.pkl")
-    with open(tracker_pkl, 'wb') as f:
-        pickle.dump(tracker, f)
 
 
 if __name__ == "__main__":
