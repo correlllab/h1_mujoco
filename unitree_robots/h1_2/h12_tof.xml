@@ -405,7 +405,7 @@
     <position name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist" /> -->
   </actuator>
 
-  <sensor>
+  <!-- <sensor>
     <rangefinder name="head_sensor_0_range" site="head_sensor_0" cutoff="4.0" />
     <rangefinder name="head_sensor_1_range" site="head_sensor_1" cutoff="4.0" />
     <rangefinder name="head_sensor_2_range" site="head_sensor_2" cutoff="4.0" />
@@ -469,6 +469,6 @@
     <rangefinder name="right_elbow_sensor_6_range" site="right_elbow_sensor_6" cutoff="4.0" />
     <rangefinder name="right_elbow_sensor_7_range" site="right_elbow_sensor_7" cutoff="4.0" />
     <rangefinder name="right_elbow_sensor_8_range" site="right_elbow_sensor_8" cutoff="4.0" />
-  </sensor>
+  </sensor> -->
 
 </mujoco>
