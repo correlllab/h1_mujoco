@@ -1,5 +1,6 @@
 <mujoco model="Unitree H1 Pelvis Fixed">
-<include file="h1_2_torso_skin.xml"/>
+<!-- <include file="h1_2_torso_skin.xml"/> -->
+<include file="h12_tof.xml"/>
 
 
 <statistic center="1.0 0.7 1.5" extent="0.8"/>
