@@ -31,6 +31,7 @@ def sim_loop():
 
     print('Simulation started with external force interface enabled!')
     print('Use keyboard controls to apply forces to the robot wrist')
+    print('Press P to pause/resume the simulation loop')
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -38,7 +39,11 @@ def sim_loop():
     while mujoco_env.viewer.is_running():
         start_time = time.time()
 
-        mujoco_env.sim_step()
+        if mujoco_env.paused:
+            # keep viewer responsive while paused
+            mujoco_env.viewer.sync()
+        else:
+            mujoco_env.sim_step()
 
         # # optional: get and display wrench on end-effector
         # force, torque = mujoco_env.get_body_wrench(body_id)

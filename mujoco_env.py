@@ -12,6 +12,9 @@ class MujocoEnv:
         self.elastic_band = None
         self.band_enabled = False
 
+        # simulation pause toggle
+        self.paused = False
+
         # initialize end-effector force interface
         self.external_force = None
         self.force_target_body_id = None
@@ -74,6 +77,13 @@ class MujocoEnv:
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
+
+        # pause / resume simulation loop
+        if key == glfw.KEY_P:
+            self.paused = not self.paused
+            state = 'paused' if self.paused else 'resumed'
+            print(f'Simulation {state}')
+
         # toggle elastic band
         if key == glfw.KEY_SPACE and self.elastic_band is not None:
             self.band_enabled = not self.band_enabled
