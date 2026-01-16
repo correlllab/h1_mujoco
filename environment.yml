@@ -5,27 +5,18 @@ dependencies:
   - python=3.10
   # common libs
   - tqdm
-  - numpy<2
+  - numpy
+  - scipy
+  - pandas
+  - argparse
   - matplotlib
   # graphic libs
-  - meshio
-  - trimesh
-  - opencv
-  - shapely
   - pyvista
   - pyquaternion
   # sims
   - mujoco
   - pygame
-  - pymunk
-  - gym
-  - gymnasium
   - robot_descriptions
-  # aux
-  - imageio
-  - imageio-ffmpeg
-  - scikit-image
-  - scikit-video
   # pip
   - pip
   - pip:
