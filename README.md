@@ -1,16 +1,18 @@
 # h1_mujoco
 
-MuJoCo simulation for the H1 robot
+MuJoCo simulation for the H1_2 robot.
 
 ## Installation
 
-- Install Python dependencies from environment.yml:
+- Clone the Unitree Python SDK from this [repo](https://github.com/unitreerobotics/unitree_sdk2_python).
+- Install python dependencies from `environment.yml` using [`conda`](https://github.com/conda-forge/miniforge):
+
     ```bash
     conda env create -f environment.yml
-    # mamba env create -f environment.yml
+    conda activate sim_env
+    cd PATH_TO_UNITREE_SDK
+    pip install -e .
     ```
-
-- Install the Unitree Python SDK from here.
 
 ## Files
 
