@@ -15,6 +15,7 @@ class CapacitiveSkin:
         self.eps = eps
         self.sensing_radius = sensing_radius
         self.sensor_site_ids = []
+        self.tof_sensor_ids = []
 
     def register_all_skin_sites(self):
         self.sensor_site_ids = []
@@ -22,6 +23,21 @@ class CapacitiveSkin:
             name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_SITE, i)
             if name is not None and 'sensor' in name.lower():
                 self.sensor_site_ids.append(i)
+    
+    def register_all_rangefinders(self):
+        # look for rangefinder sensors in the model xml <sensors> section
+        self.tof_sensor_ids = []
+        for i in range(self.model.nsensor):
+            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_SENSOR, i)
+            if name is not None and 'sensor' in name.lower():
+                self.tof_sensor_ids.append(i)
+
+    def log_rangefinder_readings(self):
+        readings = {}
+        for sid in self.tof_sensor_ids:
+            reading = self.data.sensordata[sid]
+            readings[sid] = reading
+        return readings
 
     def compute_capacitance_pair(self, sensor_pos, obstacle_pos, obstacle_radius):
         d = np.linalg.norm(sensor_pos - obstacle_pos)
@@ -59,7 +75,8 @@ def sim_loop():
     # sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
     cap_skin = CapacitiveSkin(mujoco_env.model, mujoco_env.data)
     cap_skin.register_all_skin_sites()
-
+    cap_skin.register_all_rangefinders()
+    print("Registered TOF sensors:", cap_skin.tof_sensor_ids)
     mujoco_env.launch_viewer()
     # main simulation loop
     obstacle_id = mujoco_env.model.body('obstacle').id
@@ -81,7 +98,9 @@ def sim_loop():
 
         readings = cap_skin.compute_all_capacitances(mujoco_env)
         print(readings)
-
+        tof_readings = cap_skin.log_rangefinder_readings()
+        tof_real_readings = {sid: np.round(tof_readings[sid], 2) for sid in cap_skin.tof_sensor_ids if tof_readings[sid] < 4.0 and tof_readings[sid] > 0.0}
+        print("TOF readings:", tof_real_readings)    
 
         time.sleep(max(0, mujoco_env.timestep - (time.time() - start)))
 if __name__ == '__main__':

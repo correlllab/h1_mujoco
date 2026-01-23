@@ -374,7 +374,7 @@
     </body>
     </body>
   </worldbody>
-
+  
   <actuator>
     <position name="left_hip_yaw_joint" joint="left_hip_yaw_joint" ctrlrange="-0.43 0.43" class="hip" />
     <position name="left_hip_pitch_joint" joint="left_hip_pitch_joint" ctrlrange="-3.14 2.5" class="hip" />
@@ -393,16 +393,16 @@
     <position name="left_shoulder_roll_joint" joint="left_shoulder_roll_joint" ctrlrange="-0.38 3.4" class="shoulder1" />
     <position name="left_shoulder_yaw_joint" joint="left_shoulder_yaw_joint" ctrlrange="-2.66 3.01" class="shoulder2" />
     <position name="left_elbow_joint" joint="left_elbow_joint" ctrlrange="-0.95 3.18" class="elbow" />
-    <position name="left_wrist_roll_joint" joint="left_wrist_roll_joint" ctrlrange="-3.01 2.75" class="wrist" />
+    <!-- <position name="left_wrist_roll_joint" joint="left_wrist_roll_joint" ctrlrange="-3.01 2.75" class="wrist" />
     <position name="left_wrist_pitch_joint" joint="left_wrist_pitch_joint" ctrlrange="-0.4625 0.4625" class="wrist" />
-    <position name="left_wrist_yaw_joint" joint="left_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist" />
+    <position name="left_wrist_yaw_joint" joint="left_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist" /> -->
     <position name="right_shoulder_pitch_joint" joint="right_shoulder_pitch_joint" ctrlrange="-3.14 1.57" class="shoulder1" />
     <position name="right_shoulder_roll_joint" joint="right_shoulder_roll_joint" ctrlrange="-3.4 0.38" class="shoulder1" />
     <position name="right_shoulder_yaw_joint" joint="right_shoulder_yaw_joint" ctrlrange="-3.01 2.66" class="shoulder2" />
     <position name="right_elbow_joint" joint="right_elbow_joint" ctrlrange="-0.95 3.18" class="elbow" />
-    <position name="right_wrist_roll_joint" joint="right_wrist_roll_joint" ctrlrange="-2.75 3.01" class="wrist" />
+    <!-- <position name="right_wrist_roll_joint" joint="right_wrist_roll_joint" ctrlrange="-2.75 3.01" class="wrist" />
     <position name="right_wrist_pitch_joint" joint="right_wrist_pitch_joint" ctrlrange="-0.4625 0.4625" class="wrist" />
-    <position name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist" />
+    <position name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" ctrlrange="-1.27 1.27" class="wrist" /> -->
   </actuator>
 
   <!-- <sensor>
