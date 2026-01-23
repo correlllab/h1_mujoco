@@ -1,0 +1,64 @@
+<mujoco model="magpie_gripper">
+    <default>
+        <geom type="mesh" xyaxes="1 0 0 0 0 1"/>
+    </default>
+
+    <asset>
+        <mesh name="base_bot" file="assets/base_bot.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="base_top" file="assets/base_top.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_coupler_bot" file="assets/left_coupler_bot.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_coupler_top" file="assets/left_coupler_top.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_coupler_bot" file="assets/right_coupler_bot.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_coupler_top" file="assets/right_coupler_top.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_rocker" file="assets/left_rocker.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_rocker" file="assets/right_rocker.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_crank" file="assets/left_crank.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_crank" file="assets/right_crank.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_finger" file="assets/left_finger.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_finger" file="assets/right_finger.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="mount" file="assets/mount.stl" scale="0.001 0.001 0.001"/>
+    </asset>
+    <worldbody>
+        <body name="mount">
+        <geom mesh="mount"/>
+            <body name="base_bot">
+            <geom mesh="base_bot"/>
+                <body name="base_top">
+                <geom mesh="base_top"/>
+                    <body name="left_crank">
+                    <geom mesh="left_crank"/>
+                        <body name="left_rocker">
+                        <geom mesh="left_rocker"/>
+                            <body name="left_coupler_top">
+                            <geom mesh="left_coupler_top"/>
+                            </body>
+                            <body name="left_coupler_bot">
+                            <geom mesh="left_coupler_bot"/>
+                                <body name="left_finger">
+                                    <geom mesh="left_finger"/>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+
+                    <body name="right_crank">
+                    <geom mesh="right_crank"/>
+                        <body name="right_rocker">
+                        <geom mesh="right_rocker"/>
+                            <body name="right_coupler_top">
+                            <geom mesh="right_coupler_top"/>
+                            </body>
+                            <body name="right_coupler_bot">
+                            <geom mesh="right_coupler_bot"/>
+                                <body name="right_finger">
+                                    <geom mesh="right_finger"/>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+
+                </body>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>
