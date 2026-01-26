@@ -1,6 +1,6 @@
 <mujoco model="magpie_gripper">
     <default>
-        <geom type="mesh" xyaxes="1 0 0 0 0 1"/>
+        <geom type="mesh" xyaxes="0 -1 0 1 0 0"/>
     </default>
 
     <asset>
@@ -21,47 +21,38 @@
         <mesh name="mount" file="assets/mount.stl" scale="0.001 0.001 0.001"/>
     </asset>
     <worldbody>
+        <!-- <geom type="plane" size="10 10 0.1" pos="0 0 -2" rgba=".9 0 0 1" /> -->
+        <!-- <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1" /> -->
         <body name="mount">
         <geom mesh="mount"/>
             <body name="base_bot">
-            <geom mesh="base_bot"/>
+                <geom mesh="base_bot"/>
                 <body name="base_top">
-                <geom mesh="base_top"/>
+                    <geom mesh="base_top"/>
+
                     <body name="left_crank">
-                    <geom mesh="left_crank"/>
+                        <joint name="left_hinge_1" pos="1.75 -38.0 69.0" axis="1 0 0"/>
+                        <geom mesh="left_crank"/>
                         <body name="left_rocker">
-                        <geom mesh="left_rocker"/>
+                            <!-- <joint name="left_hinge_2" pos="" axis=""/> -->
+                            <geom mesh="left_rocker"/>
                             <body name="left_finger_combined">
-                            <geom mesh="left_finger_combined"/>
+                                <!-- <joint name="left_hinge_3" pos="" axis=""/> -->
+                                <geom mesh="left_finger_combined"/>
                             </body>
-                            <!-- <body name="left_coupler_top">
-                            <geom mesh="left_coupler_top"/>
-                            </body>
-                            <body name="left_coupler_bot">
-                            <geom mesh="left_coupler_bot"/>
-                                <body name="left_finger">
-                                    <geom mesh="left_finger"/>
-                                </body>
-                            </body> -->
                         </body>
                     </body>
 
                     <body name="right_crank">
-                    <geom mesh="right_crank"/>
+                        <!-- <joint name="right_hinge_1" pos="" axis=""/> -->
+                        <geom mesh="right_crank"/>
                         <body name="right_rocker">
-                        <geom mesh="right_rocker"/>
+                            <!-- <joint name="right_hinge_2" pos="" axis=""/> -->
+                            <geom mesh="right_rocker"/>
                             <body name="right_finger_combined">
-                            <geom mesh="right_finger_combined"/>
+                                <!-- <joint name="right_hinge_3" pos="" axis=""/> -->
+                                <geom mesh="right_finger_combined"/>
                             </body>
-                            <!-- <body name="right_coupler_top">
-                            <geom mesh="right_coupler_top"/>
-                            </body>
-                            <body name="right_coupler_bot">
-                            <geom mesh="right_coupler_bot"/>
-                                <body name="right_finger">
-                                    <geom mesh="right_finger"/>
-                                </body>
-                            </body> -->
                         </body>
                     </body>
 
@@ -69,4 +60,8 @@
             </body>
         </body>
     </worldbody>
+    <equality>
+        <!-- <connect name="left_kinematic_link" active="true" body1="base_top" body2="left_finger_combined" anchor="" /> -->
+        <!-- <connect name="right_kinematic_link" active="true" body1="base_top" body2="right_finger_combined" anchor="" /> -->
+    </equality>
 </mujoco>
