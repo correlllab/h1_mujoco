@@ -15,7 +15,9 @@
         <mesh name="left_crank" file="assets/left_crank.stl" scale="0.001 0.001 0.001"/>
         <mesh name="right_crank" file="assets/right_crank.stl" scale="0.001 0.001 0.001"/>
         <mesh name="left_finger" file="assets/left_finger.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="left_finger_combined" file="assets/left_finger_combined.stl" scale="0.001 0.001 0.001"/>
         <mesh name="right_finger" file="assets/right_finger.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="right_finger_combined" file="assets/right_finger_combined.stl" scale="0.001 0.001 0.001"/>
         <mesh name="mount" file="assets/mount.stl" scale="0.001 0.001 0.001"/>
     </asset>
     <worldbody>
@@ -29,7 +31,10 @@
                     <geom mesh="left_crank"/>
                         <body name="left_rocker">
                         <geom mesh="left_rocker"/>
-                            <body name="left_coupler_top">
+                            <body name="left_finger_combined">
+                            <geom mesh="left_finger_combined"/>
+                            </body>
+                            <!-- <body name="left_coupler_top">
                             <geom mesh="left_coupler_top"/>
                             </body>
                             <body name="left_coupler_bot">
@@ -37,7 +42,7 @@
                                 <body name="left_finger">
                                     <geom mesh="left_finger"/>
                                 </body>
-                            </body>
+                            </body> -->
                         </body>
                     </body>
 
@@ -45,7 +50,10 @@
                     <geom mesh="right_crank"/>
                         <body name="right_rocker">
                         <geom mesh="right_rocker"/>
-                            <body name="right_coupler_top">
+                            <body name="right_finger_combined">
+                            <geom mesh="right_finger_combined"/>
+                            </body>
+                            <!-- <body name="right_coupler_top">
                             <geom mesh="right_coupler_top"/>
                             </body>
                             <body name="right_coupler_bot">
@@ -53,7 +61,7 @@
                                 <body name="right_finger">
                                     <geom mesh="right_finger"/>
                                 </body>
-                            </body>
+                            </body> -->
                         </body>
                     </body>
 
