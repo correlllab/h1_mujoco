@@ -27,6 +27,43 @@
         <default class="eef_collision">
           <geom type="cylinder"/>
         </default>
+
+        <!-- left finger collision boxes -->
+        <default class="pad_box1">
+          <geom mass="0" type="box" pos="0.003 -0.02227 0.0113" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.55 0.55 0.55 1"/>
+        </default>
+        <default class="pad_box2">
+          <geom mass="0" type="box" pos="0.003 -0.02227 0.0313" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.45 0.45 0.45 1"/>
+        </default>
+        <default class="pad_box3">
+          <geom mass="0" type="box" pos="0.003 -0.02227 0.0513" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.55 0.55 0.55 1"/>
+        </default>
+        <default class="pad_box4">
+          <geom mass="0" type="box" pos="0.003 -0.02227 0.0713" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.45 0.45 0.45 1"/>
+        </default>
+
+        <!-- right finger collision boxes -->
+        <default class="pad_box5">
+          <geom mass="0" type="box" pos="0.003 0.02227 0.0113" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.55 0.55 0.55 1"/>
+        </default>
+        <default class="pad_box6">
+          <geom mass="0" type="box" pos="0.003 0.02227 0.0313" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.45 0.45 0.45 1"/>
+        </default>
+        <default class="pad_box7">
+          <geom mass="0" type="box" pos="0.003 0.02227 0.0513" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.55 0.55 0.55 1"/>
+        </default>
+        <default class="pad_box8">
+          <geom mass="0" type="box" pos="0.003 0.02227 0.0713" size="0.008 0.0015 0.01" friction="0.6"
+            solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.45 0.45 0.45 1"/>
+        </default>
+
       </default>
       <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
     </default>
@@ -82,6 +119,7 @@
   </asset>
 
   <worldbody>
+    <site name="world"/>
     <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2"/>
     <body name="base" quat="0 0 0 -1" childclass="ur5e">
       <inertial mass="4.0" pos="0 0 0" diaginertia="0.00443333156 0.00443333156 0.0072"/>
@@ -158,22 +196,30 @@
              anchor="-0.00075 -0.060 0.065" solimp="0.95 0.99 0.001" solref="0.005 1"/>
   </equality>
 
-  <!-- UR5E arm actuators -->
   <actuator>
-    <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
+      <!-- UR5E arm actuators -->
+    <!-- <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
     <general class="size3" name="shoulder_lift" joint="shoulder_lift_joint"/>
     <general class="size3_limited" name="elbow" joint="elbow_joint"/>
     <general class="size1" name="wrist_1" joint="wrist_1_joint"/>
     <general class="size1" name="wrist_2" joint="wrist_2_joint"/>
-    <general class="size1" name="wrist_3" joint="wrist_3_joint"/>
+    <general class="size1" name="wrist_3" joint="wrist_3_joint"/> -->
+
+    <!-- End-effector 6D Cartesian Space Control -->
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="1 0 0 0 0 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 1 0 0 0 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 0 1 0 0 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 1 0 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 1 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 0 1"/>
 
     <!-- Magpie gripper actuators -->
-    <position name="left_finger_actuator" joint="left_hinge_1" ctrlrange="-0.035 2.05" kp="10"/>
-    <position name="right_finger_actuator" joint="right_hinge_1" ctrlrange="-2.05 0.035" kp="10"/>
+    <position name="left_finger_actuator" joint="left_hinge_1" ctrlrange="-0.035 2.70" kp="10"/>
+    <position name="right_finger_actuator" joint="right_hinge_1" ctrlrange="-2.70 0.035" kp="10"/>
   </actuator>
 
   <keyframe>
-    <key name="home" qpos="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0"
-         ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0"/>
+    <!-- <key name="home" qpos="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0"
+         ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0"/> -->
   </keyframe>
 </mujoco>

@@ -17,16 +17,32 @@
     <texture name="skybox" type="skybox" builtin="gradient" rgb1=".66 .79 1" rgb2=".9 .91 .93" width="800" height="800"/>
 
     <!-- Magpie gripper meshes (prefixed names for include compatibility) -->
-    <mesh name="magpie_mount" file="mount.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_base_bot" file="base_bot.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_base_top" file="base_top.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_left_crank" file="left_crank.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_right_crank" file="right_crank.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_left_finger" file="left_finger_eflesh.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_right_finger" file="right_finger_eflesh.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_left_rocker" file="left_rocker.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="magpie_right_rocker" file="right_rocker.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_mount" file="mount.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_base_bot" file="base_bot.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_base_top" file="base_top.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_left_crank" file="left_crank.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_right_crank" file="right_crank.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_left_finger" file="left_finger_eflesh.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_right_finger" file="right_finger_eflesh.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_left_rocker" file="left_rocker.stl" scale="0.001 0.001 0.001"/>
+    <mesh class="magpie" name="magpie_right_rocker" file="right_rocker.stl" scale="0.001 0.001 0.001"/>
   </asset>
+
+  <default>
+    <default class="magpie">
+      <material specular="0.5" shininess="0.25"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom type="capsule" group="3"/>
+        <default class="eef_collision">
+          <geom type="cylinder"/>
+        </default>
+      </default>
+      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+    </default>
+  </default>
 
   <worldbody>
     <!-- Include the gripper body hierarchy -->
