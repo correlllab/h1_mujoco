@@ -1,9 +1,25 @@
 <mujoco model="magpie_gripper">
     <default>
+        <!-- <geom type="mesh" xyaxes="1 0 0 0 1 0"/> -->
         <geom type="mesh" xyaxes="0 -1 0 1 0 0"/>
+        <!-- <geom type="mesh" xyaxes="1 0 0 0 0 1"/> -->
     </default>
 
+    <visual>
+        <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
+        <map znear=".01"/>
+        <quality shadowsize="2048"/>
+        <global elevation="-15"/>
+    </visual>
+
     <asset>
+        <texture name="blue_grid" type="2d" builtin="checker" rgb1=".02 .14 .44" rgb2=".27 .55 1" width="300" height="300" mark="edge" markrgb="1 1 1"/>
+        <material name="blue_grid" texture="blue_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+
+        <texture name="grey_grid" type="2d" builtin="checker" rgb1=".26 .26 .26" rgb2=".6 .6 .6" width="300" height="300" mark="edge" markrgb="1 1 1"/>
+        <material name="grey_grid" texture="grey_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+        <texture name="skybox" type="skybox" builtin="gradient" rgb1=".66 .79 1" rgb2=".9 .91 .93" width="800" height="800"/>
+
         <mesh name="base_bot" file="assets/base_bot.stl" scale="0.001 0.001 0.001"/>
         <mesh name="base_top" file="assets/base_top.stl" scale="0.001 0.001 0.001"/>
         <mesh name="left_coupler_bot" file="assets/left_coupler_bot.stl" scale="0.001 0.001 0.001"/>
@@ -21,8 +37,6 @@
         <mesh name="mount" file="assets/mount.stl" scale="0.001 0.001 0.001"/>
     </asset>
     <worldbody>
-        <!-- <geom type="plane" size="10 10 0.1" pos="0 0 -2" rgba=".9 0 0 1" /> -->
-        <!-- <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1" /> -->
         <body name="mount">
         <geom mesh="mount"/>
             <body name="base_bot">
@@ -30,28 +44,34 @@
                 <body name="base_top">
                     <geom mesh="base_top"/>
 
-                    <body name="left_crank">
-                        <joint name="left_hinge_1" pos="1.75 -38.0 69.0" axis="1 0 0"/>
-                        <geom mesh="left_crank"/>
-                        <body name="left_rocker">
-                            <!-- <joint name="left_hinge_2" pos="" axis=""/> -->
-                            <geom mesh="left_rocker"/>
-                            <body name="left_finger_combined">
-                                <!-- <joint name="left_hinge_3" pos="" axis=""/> -->
-                                <geom mesh="left_finger_combined"/>
+                    <!-- Left 4-bar mechanism: base_top -> crank -> finger -> rocker -->
+                    <!-- Pivots: 1=crank-base(0.00175,0.038,0.069), 2=finger-inner(-0.00675,0.077824,0.089953) -->
+                    <!--         3=finger-outer(-0.00675,0.099824,0.085954), 4=rocker-base(-0.00075,0.060,0.065) -->
+                    <body name="left_crank" pos="0.00175 0.038 0.069">
+                        <joint name="left_hinge_1" pos="0 0 0" axis="1 0 0" range="-0.5 0.5"/>
+                        <geom mesh="left_crank" pos="-0.00175 -0.038 -0.069"/>
+                        <body name="left_finger_combined" pos="-0.0085 0.039824 0.020953">
+                            <joint name="left_hinge_2" pos="0 0 0" axis="1 0 0"/>
+                            <geom mesh="left_finger_combined" pos="0.00675 -0.077824 -0.089953"/>
+                            <body name="left_rocker" pos="0 0.022 -0.003999">
+                                <joint name="left_hinge_3" pos="0 0 0" axis="1 0 0"/>
+                                <geom mesh="left_rocker" pos="0.00675 -0.099824 -0.085954"/>
                             </body>
                         </body>
                     </body>
 
-                    <body name="right_crank">
-                        <!-- <joint name="right_hinge_1" pos="" axis=""/> -->
-                        <geom mesh="right_crank"/>
-                        <body name="right_rocker">
-                            <!-- <joint name="right_hinge_2" pos="" axis=""/> -->
-                            <geom mesh="right_rocker"/>
-                            <body name="right_finger_combined">
-                                <!-- <joint name="right_hinge_3" pos="" axis=""/> -->
-                                <geom mesh="right_finger_combined"/>
+                    <!-- Right 4-bar mechanism: base_top -> crank -> finger -> rocker -->
+                    <!-- Pivots: 1=crank-base(0.00175,-0.038,0.069), 2=finger-inner(-0.00675,-0.077824,0.089953) -->
+                    <!--         3=finger-outer(-0.00675,-0.099824,0.085954), 4=rocker-base(-0.00075,-0.060,0.065) -->
+                    <body name="right_crank" pos="0.00175 -0.038 0.069">
+                        <joint name="right_hinge_1" pos="0 0 0" axis="1 0 0" range="-0.5 0.5"/>
+                        <geom mesh="right_crank" pos="-0.00175 0.038 -0.069"/>
+                        <body name="right_finger_combined" pos="-0.0085 -0.039824 0.020953">
+                            <joint name="right_hinge_2" pos="0 0 0" axis="1 0 0"/>
+                            <geom mesh="right_finger_combined" pos="0.00675 0.077824 -0.089953"/>
+                            <body name="right_rocker" pos="0 -0.022 -0.003999">
+                                <joint name="right_hinge_3" pos="0 0 0" axis="1 0 0"/>
+                                <geom mesh="right_rocker" pos="0.00675 0.099824 -0.085954"/>
                             </body>
                         </body>
                     </body>
@@ -61,7 +81,17 @@
         </body>
     </worldbody>
     <equality>
-        <!-- <connect name="left_kinematic_link" active="true" body1="base_top" body2="left_finger_combined" anchor="" /> -->
-        <!-- <connect name="right_kinematic_link" active="true" body1="base_top" body2="right_finger_combined" anchor="" /> -->
+        <!-- Connect constraints close the 4-bar loop by pinning rocker to base at pivot4 (rocker-base) -->
+        <!-- Anchor is in body1 (base_top) frame, from CAD with axis transform -->
+        <!-- Left:  CAD (-60.0, -0.750, 65.0) -> MuJoCo (-0.00075, 0.060, 0.065) -->
+        <!-- Right: CAD (60.0, -0.750, 65.0)  -> MuJoCo (-0.00075, -0.060, 0.065) -->
+        <connect name="left_4bar_close" active="true" body1="base_top" body2="left_rocker" anchor="-0.00075 0.060 0.065"/>
+        <connect name="right_4bar_close" active="true" body1="base_top" body2="right_rocker" anchor="-0.00075 -0.060 0.065"/>
     </equality>
+    <actuator>
+        <!-- Position actuators drive the crank (hinge_1) to control finger position -->
+        <!-- ctrlrange maps to joint range; kp is position gain -->
+        <position name="left_finger_actuator" joint="left_hinge_1" ctrlrange="-0.035 2.05" kp="10"/>
+        <position name="right_finger_actuator" joint="right_hinge_1" ctrlrange="-2.05 -0.035" kp="10"/>
+    </actuator>
 </mujoco>
