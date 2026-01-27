@@ -218,6 +218,72 @@ data.ctrl[1] = 0.3   # right finger
 mujoco.mj_step(model, data)
 ```
 
+## Modular File Structure
+
+The magpie gripper is organized into modular files for reuse:
+
+### File Organization
+
+| File | Purpose |
+|------|---------|
+| `magpie.xml` | Standalone gripper model (complete with worldbody) |
+| `magpie_gripper.xml` | Body hierarchy only (for inclusion in other models) |
+| `ur5_magpie.xml` | UR5E arm + magpie gripper combined |
+
+### Using `<include>` for Reuse
+
+The `magpie_gripper.xml` file contains only the body tree (no `<mujoco>` or `<worldbody>` wrapper), allowing it to be included as a child of any body:
+
+```xml
+<!-- In your robot model, attach gripper to end effector -->
+<body name="end_effector">
+  <body name="gripper_attachment" pos="0 0.1 0" quat="0.707 -0.707 0 0">
+    <include file="magpie_gripper.xml"/>
+  </body>
+</body>
+```
+
+### Attachment Considerations
+
+When attaching to a robot arm:
+
+1. **Position**: Offset the gripper mount from the wrist flange
+2. **Orientation**: Rotate to align gripper Z-axis (through fingers) with arm's end-effector direction
+3. **Assets**: Include magpie mesh assets with `magpie_` prefix to avoid name conflicts
+4. **Equality constraints**: Add the 4-bar loop closure constraints
+5. **Actuators**: Add position actuators for the crank joints
+
+### Example: UR5E Integration
+
+```xml
+<!-- In ur5_magpie.xml -->
+<body name="wrist_3_link">
+  ...
+  <!-- Rotate gripper: UR5E Y-out → Magpie Z-out (-90° about X) -->
+  <body name="gripper_attachment" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
+    <include file="magpie_gripper.xml"/>
+  </body>
+</body>
+
+<!-- Don't forget equality constraints and actuators! -->
+<equality>
+  <connect name="left_4bar_close" body1="base_top" body2="left_rocker"
+           anchor="-0.00075 0.060 0.065"/>
+  ...
+</equality>
+```
+
+### Keeping Models in Sync
+
+When you modify `magpie_gripper.xml`:
+- Changes automatically propagate to both `magpie.xml` and `ur5_magpie.xml` (via include)
+- Only one source file to maintain for the body hierarchy
+
+When you modify pivot positions or add links:
+- Update `magpie_gripper.xml` (single source of truth for body tree)
+- Update equality constraint anchors in `magpie.xml` and `ur5_magpie.xml`
+- Update actuator definitions if joint names change
+
 ## Summary
 
 1. **Export meshes** from Onshape as STL
@@ -227,3 +293,4 @@ mujoco.mj_step(model, data)
 5. **Place joints at body origins** (pivot 1, 2, 3)
 6. **Close loop with connect constraint** anchored at pivot 4
 7. **Add actuators** on crank joints (hinge_1) to drive the mechanism
+8. **Use modular includes** for robot arm integration
