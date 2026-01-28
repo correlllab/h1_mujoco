@@ -170,12 +170,11 @@
                     diaginertia="0.000132134 9.90863e-05 9.90863e-05"/>
                   <joint name="wrist_3_joint" class="size1"/>
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
-                  <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
 
                   <!-- Magpie gripper attached to UR5E wrist -->
                   <!-- Attachment frame: UR5E Y-axis out, Magpie Z-axis out -->
                   <!-- quat rotates gripper so its Z aligns with UR5E +Y (-90° about X) -->
-                  <body name="gripper_attachment" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
+                  <body name="gripper_attachment" gravcomp="1" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
                     <include file="magpie_gripper.xml"/>
                   </body>
 

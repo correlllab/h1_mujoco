@@ -5,7 +5,7 @@
 <!--   magpie_left_crank, magpie_right_crank, magpie_left_finger, magpie_right_finger, -->
 <!--   magpie_left_rocker, magpie_right_rocker -->
 
-<body name="mount">
+<body name="mount" gravcomp="1">
   <site name="eeff" pos="-0.004 0 0.193" group="3"/>
   <geom type="mesh" class="visual" mesh="magpie_mount" xyaxes="0 -1 0 1 0 0"/>
   <geom type="mesh" class="collision" mesh="magpie_mount" xyaxes="0 -1 0 1 0 0"/>

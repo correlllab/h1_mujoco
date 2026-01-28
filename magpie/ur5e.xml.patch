@@ -1,5 +1,5 @@
 --- ur5e.xml	2026-01-27 12:12:19.159736311 -0700
-+++ ur5_magpie.xml	2026-01-28 11:32:20.447444709 -0700
++++ ur5_magpie.xml	2026-01-28 12:10:00.637139658 -0700
 @@ -1,12 +1,14 @@
 -<mujoco model="ur5e">
 +<mujoco model="ur5e_magpie">
@@ -144,7 +144,7 @@
                  <inertial mass="1.219" pos="0 0 0.1" diaginertia="0.0025599 0.0025599 0.0021942"/>
                  <joint name="wrist_2_joint" axis="0 0 1" class="size1"/>
                  <geom mesh="wrist2_0" material="black" class="visual"/>
-@@ -105,13 +165,20 @@
+@@ -105,13 +165,19 @@
                  <geom mesh="wrist2_2" material="jointgray" class="visual"/>
                  <geom class="collision" size="0.04 0.06" pos="0 0 0.04"/>
                  <geom class="collision" pos="0 0.02 0.1" quat="1 1 0 0" size="0.04 0.04"/>
@@ -154,20 +154,20 @@
                      diaginertia="0.000132134 9.90863e-05 9.90863e-05"/>
                    <joint name="wrist_3_joint" class="size1"/>
                    <geom material="linkgray" mesh="wrist3" class="visual"/>
-                   <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
+-                  <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
 -                  <site name="attachment_site" pos="0 0.1 0" quat="-1 1 0 0"/>
 +
 +                  <!-- Magpie gripper attached to UR5E wrist -->
 +                  <!-- Attachment frame: UR5E Y-axis out, Magpie Z-axis out -->
 +                  <!-- quat rotates gripper so its Z aligns with UR5E +Y (-90° about X) -->
-+                  <body name="gripper_attachment" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
++                  <body name="gripper_attachment" gravcomp="1" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
 +                    <include file="magpie_gripper.xml"/>
 +                  </body>
 +
                  </body>
                </body>
              </body>
-@@ -121,16 +188,34 @@
+@@ -121,16 +187,34 @@
      </body>
    </worldbody>
  
