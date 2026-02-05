@@ -39,6 +39,7 @@
         <default class="eef_collision">
           <geom type="cylinder"/>
         </default>
+
       </default>
       <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
     </default>
@@ -46,7 +47,7 @@
 
   <worldbody>
     <!-- Include the gripper body hierarchy -->
-    <include file="magpie_gripper.xml"/>
+    <include file="magpie_gripper_eflesh.xml"/>
   </worldbody>
 
   <equality>
