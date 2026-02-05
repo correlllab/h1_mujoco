@@ -1,0 +1,40 @@
+<mujoco>
+  <compiler autolimits="true"/>
+
+  <default>
+    <site type="sphere" rgba="1 0 0 1" size="0.005"/>
+    <tendon rgba="0 1 0 1"/>
+  </default>
+
+  <visual>
+    <headlight diffuse=".7 .7 .7"/>
+  </visual>
+
+  <worldbody>
+    <body name="arm">
+      <joint name="arm" axis="0 1 0" damping=".04"/>
+      <geom name="shoulder" type="cylinder" size=".05 .01" zaxis="0 1 0"/>
+      <geom name="arm" type="box" size=".01" fromto="0 0 0 -.3 0 0"/>
+      <geom name="crossbar" type="box" size=".01" fromto="-.1 0 -.05 -.1 0 .05"/>
+      <site name="arm" pos="-.1 0 .05"/>
+    </body>
+    <site name="right" pos=".1 0 0"/>
+    <body name="slider" pos=".05 0 -.2">
+      <joint name="slider" type="slide" damping="1"/>
+      <geom name="slider" type="box" size=".01 .01 .01"/>
+      <site name="slider" pos="0 0 .01"/>
+    </body>
+  </worldbody>
+
+  <tendon>
+    <spatial name="rope" range="0 .35">
+      <site site="slider"/>
+      <geom geom="shoulder" sidesite="right"/>
+      <site site="arm"/>
+    </spatial>
+  </tendon>
+
+  <actuator>
+    <position name="slider" joint="slider" ctrlrange="-.05 .05" kp="100"/>
+  </actuator>
+</mujoco>
