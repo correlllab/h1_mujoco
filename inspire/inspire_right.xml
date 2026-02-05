@@ -140,4 +140,24 @@
       </body>
     </body>
   </worldbody>
+
+  <equality>
+    <joint joint1="pinky_proximal_joint" joint2="pinky_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="ring_proximal_joint" joint2="ring_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="middle_proximal_joint" joint2="middle_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="index_proximal_joint" joint2="index_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="thumb_proximal_pitch_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="thumb_distal_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <position name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.47" kp="10"/>
+    <position name="ring" joint="ring_proximal_joint" ctrlrange="0 1.47" kp="10"/>
+    <position name="middle" joint="middle_proximal_joint" ctrlrange="0 1.47" kp="10"/>
+    <position name="index" joint="index_proximal_joint" ctrlrange="0 1.47" kp="10"/>
+    <position name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0 0.6" kp="10"/>
+    <!-- <position name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308" kp="10"/> -->
+  </actuator>
+
+
 </mujoco>
