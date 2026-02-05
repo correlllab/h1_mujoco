@@ -1,5 +1,5 @@
 --- ur5e/ur5e.xml	2026-02-05 12:24:20.926399043 -0700
-+++ inspire/ur5_inspire.xml	2026-02-05 13:29:49.427589515 -0700
++++ inspire/ur5_inspire.xml	2026-02-05 13:56:55.115509207 -0700
 @@ -1,12 +1,14 @@
 -<mujoco model="ur5e">
 +<mujoco model="UR5e Inspire RH">
