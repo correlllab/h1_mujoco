@@ -10,6 +10,8 @@
 
   <default>
     <default class="inspire">
+      <position kp="300" dampratio="1.0" inheritrange="1" />
+      <joint damping="0.0" armature="1.0" frictionloss="0.0" />
       <material specular="0.5" shininess="0.25" />
         <default class="visual">
           <geom type="mesh" contype="0" conaffinity="0" group="2" />
@@ -156,7 +158,7 @@
     <position name="middle" joint="middle_proximal_joint" ctrlrange="0 1.47" kp="10"/>
     <position name="index" joint="index_proximal_joint" ctrlrange="0 1.47" kp="10"/>
     <position name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0 0.6" kp="10"/>
-    <!-- <position name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308" kp="10"/> -->
+    <position name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308" kp="10"/>
   </actuator>
 
 
