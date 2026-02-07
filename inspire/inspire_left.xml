@@ -139,6 +139,10 @@
     </body>
   </worldbody>
 
+  <contact>
+    <exclude body1="thumb_proximal" body2="thumb_proximal_base" />
+  </contact>
+
   <equality>
     <joint joint1="pinky_proximal_joint" joint2="pinky_intermediate_joint" polycoef="0 1 0 0 0"/>
     <joint joint1="ring_proximal_joint" joint2="ring_intermediate_joint" polycoef="0 1 0 0 0"/>
