@@ -9,7 +9,7 @@
   <default>
     <default class="inspire">
       <!-- disable all contacts and use explicit collision pairs -->
-      <geom density="800" condim="1" contype="0" conaffinity="0" />
+      <geom density="800" condim="4" contype="0" conaffinity="0" friction="0.8 0.005 0.001" solref="0.002 1" solimp="0.9 0.95 0.001" />
       <!-- with this setting, the response time is around 1s -->
       <position kp="300" dampratio="1.0"/>
       <joint damping="0.0" armature="1.0" frictionloss="0.0" />
