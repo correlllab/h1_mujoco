@@ -35,6 +35,8 @@
     <material name="grey_grid" texture="grey_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
     <texture name="skybox" type="skybox" builtin="gradient" rgb1=".66 .79 1" rgb2=".9 .91 .93" width="800" height="800"/>
 
+    <mesh name="ur5_mount" content_type="model/stl" file="ur5_mount.stl"/>
+
     <!-- collision meshes -->
     <mesh name="right_thumb_proximal_base" file="collision/right_thumb_proximal_base.stl"/>
     <mesh name="right_thumb_proximal" file="collision/right_thumb_proximal.stl"/>
@@ -58,7 +60,9 @@
   </asset>
   <worldbody>
     <light name="spotlight" mode="targetbodycom" target="base" pos="0 -1 2" />
-    <body name="base" childclass="inspire">
+    <site name="eeff" pos="0.070 0.016 0.155" group="3"/>
+    <geom type="mesh" contype="0" conaffinity="0" group="1" pos="0 0 -0.0051" quat="0 0 0.7071068 0.7071068" density="0" mesh="ur5_mount" />
+    <body name="base" pos="0.006 0 0.0" childclass="inspire">
       <geom type="mesh" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" mesh="right_base_link_visual" class="visual"/>
       <geom size="0.028 0.0139" pos="0 8.60444e-08 0.0136" quat="1.32679e-06 0 0 1" type="cylinder" class="collision" />
       <geom size="0.01955 0.0101 0.0287" pos="0.0032 2.31927e-07 0.038" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision" />
@@ -68,7 +72,8 @@
       <geom size="0.00625 0.00555 0.00445" pos="0.00159997 -0.0117992 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision" />
       <geom size="0.00625 0.00555 0.00445" pos="0.00160002 0.00700084 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision" />
       <geom size="0.00625 0.00555 0.00445" pos="0.00160007 0.0262008 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision" />
-      <body name="thumb_proximal_base" pos="0.0169601 0.0204504 0.0690999" quat="-0.707107 9.38192e-07 3.53553e-06 0.707106" childclass="inspire">
+      <!-- <body name="thumb_proximal_base" pos="0.0169601 0.0204504 0.0690999" quat="-0.707107 9.38192e-07 3.53553e-06 0.707106" childclass="inspire"> -->
+      <body name="thumb_proximal_base" pos="0.0169601 0.0204504 0.090999" quat="-0.707107 9.38192e-07 3.53553e-06 0.707106" childclass="inspire">
         <inertial pos="-0.0048064 0.0009382 -0.00757" quat="0.515015 0.680854 0.408023 0.323596" mass="0.0018869" diaginertia="8.66026e-08 6.8732e-08 4.94194e-08" />
         <joint name="thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 -1" range="0 1.308" actuatorfrcrange="-1 1" />
         <geom type="mesh" mesh="right_thumb_proximal_base" class="collision" />
@@ -150,9 +155,10 @@
     <exclude body1="base" body2="middle_proximal"/>
     <exclude body1="base" body2="ring_proximal"/>
     <exclude body1="base" body2="pinky_proximal"/>
+    <exclude body1="base" body2="thumb_proximal"/>
 
     <!-- Thumb chain exclusions -->
-    <exclude body1="thumb_proximal_base" body2="thumb_proximal"/>
+    <exclude body1="thumb_proximal_base" body2="thumb_intermediate"/>
     <exclude body1="thumb_proximal" body2="thumb_intermediate"/>
     <exclude body1="thumb_intermediate" body2="thumb_distal"/>
 

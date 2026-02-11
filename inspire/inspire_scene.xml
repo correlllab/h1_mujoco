@@ -1,5 +1,6 @@
 <mujoco model="inspire scene">
   <include file="inspire_right.xml"/>
+  <!-- <include file="right_ur5_mount.xml"/> -->
 
   <!-- Add some fluid viscosity to prevent the hanging box from jiggling forever -->
   <option viscosity="0.1"/>
@@ -22,14 +23,28 @@
   <worldbody>
     <light pos="0 0 1"/>
     <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
-    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-    <site size="0.002" pos="0 0 0.2" name="anchor"/>
-    <body name="object" pos="-0.070 -0.155 -0.016">
+    <geom name="floor" pos="0 0 -0.022" size="0 0 0.05" type="plane" material="groundplane"/>
+    <site size="0.002" pos="0.07 0.016 0.2" name="anchor"/>
+    <body name="object" pos="0.07 0.016 0.15">
       <freejoint/>
-      <geom type="box" size="0.015 0.015 0.015" rgba=".5 .7 .5 1" friction=".5" priority="1"/>
+      <geom name="box" type="box" size="0.015 0.015 0.015" rgba=".5 .7 .5 1" friction=".5" priority="1"/>
       <site size="0.002" pos="0.015 0.015 0.015" name="hook"/>
     </body>
   </worldbody>
+
+  <!-- <contact>
+    <pair geom1="box" geom2="collision_hand_right_palm_0"/>
+    <pair geom1="box" geom2="collision_hand_right_thumb_1"/>
+    <pair geom1="box" geom2="collision_hand_right_thumb_0"/>
+    <pair geom1="box" geom2="collision_hand_right_index_1"/>
+    <pair geom1="box" geom2="collision_hand_right_index_0"/>
+    <pair geom1="box" geom2="collision_hand_right_middle_1"/>
+    <pair geom1="box" geom2="collision_hand_right_middle_0"/>
+    <pair geom1="box" geom2="collision_hand_right_ring_1"/>
+    <pair geom1="box" geom2="collision_hand_right_ring_0"/>
+    <pair geom1="box" geom2="collision_hand_right_pinky_1"/>
+    <pair geom1="box" geom2="collision_hand_right_pinky_0"/>
+  </contact> -->
 
   <tendon>
     <spatial limited="true" range="0 0.02" width="0.001">
