@@ -141,8 +141,10 @@
                     diaginertia="0.000132134 9.90863e-05 9.90863e-05"/>
                   <joint name="wrist_3_joint" class="size1"/>
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
+                  <!-- Force/torque sensor site at wrist -->
+                  <site name="wrist_ft" pos="0 0.12 0" size="0.01" rgba="1 1 0 0.5" group="3"/>
 
-                  <!-- Magpie gripper attached to UR5E wrist -->
+                  <!-- Inspire hand attached to UR5E wrist -->
                   <!-- Attachment frame: UR5E Y-axis out, Magpie Z-axis out -->
                   <!-- quat rotates gripper so its Z aligns with UR5E +Y (-90° about X) -->
                   <body name="gripper_attachment" gravcomp="1" pos="0 0.12 0" quat="0 0 0 1">
@@ -193,5 +195,11 @@
     <position class="inspire" name="right_thumb_proximal" joint="right_thumb_proximal_pitch_joint" ctrlrange="0 0.6" />
     <position class="inspire" name="right_thumb_yaw" joint="right_thumb_proximal_yaw_joint" ctrlrange="0 1.308" />
   </actuator>
+
+  <!-- Force/torque sensor at wrist -->
+  <sensor>
+    <force name="wrist_force" site="wrist_ft"/>
+    <torque name="wrist_torque" site="wrist_ft"/>
+  </sensor>
 
 </mujoco>
