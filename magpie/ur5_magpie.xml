@@ -201,30 +201,23 @@
 
   <actuator>
       <!-- UR5E arm actuators -->
-    <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
+    <!-- <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
     <general class="size3" name="shoulder_lift" joint="shoulder_lift_joint"/>
     <general class="size3_limited" name="elbow" joint="elbow_joint"/>
     <general class="size1" name="wrist_1" joint="wrist_1_joint"/>
     <general class="size1" name="wrist_2" joint="wrist_2_joint"/>
-    <general class="size1" name="wrist_3" joint="wrist_3_joint"/>
+    <general class="size1" name="wrist_3" joint="wrist_3_joint"/> -->
 
     <!-- End-effector 6D Cartesian Space Control -->
-    <!-- <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="1 0 0 0 0 0"/>
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="1 0 0 0 0 0"/>
     <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 1 0 0 0 0"/>
     <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 0 1 0 0 0"/>
     <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 1 0 0"/>
     <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 1 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 0 1"/> -->
+    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 0 1"/>
 
     <!-- Magpie gripper actuators -->
     <position name="left_finger_actuator" joint="left_hinge_1" ctrlrange="-0.035 2.70" kp="10"/>
     <position name="right_finger_actuator" joint="right_hinge_1" ctrlrange="-2.70 0.035" kp="10"/>
   </actuator>
-
-  <!-- Force/torque sensor at wrist -->
-  <sensor>
-    <force name="wrist_force" site="wrist_ft"/>
-    <torque name="wrist_torque" site="wrist_ft"/>
-  </sensor>
-
 </mujoco>
