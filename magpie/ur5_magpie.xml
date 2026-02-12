@@ -171,12 +171,14 @@
                   <joint name="wrist_3_joint" class="size1"/>
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
                   <!-- Force/torque sensor site at wrist -->
-                  <site name="wrist_ft" pos="0 0.1 0" size="0.01" rgba="1 1 0 0.5" group="3"/>
+                  <geom name="optoforce" size="0.035 0.0175" pos="0 0.1165 0" quat="0 0 0.7071068 0.707168" density="0" type="cylinder" class="visual" />
+                  <geom name="optoforce_collision" size="0.035 0.0175" pos="0 0.1165 0" quat="0 0 0.7071068 0.707168" density="0" type="cylinder" class="collision" />
+                  <site name="wrist_ft" pos="0 0.12 0" size="0.01" rgba="1 1 0 0.5" group="3"/>
 
                   <!-- Magpie gripper attached to UR5E wrist -->
                   <!-- Attachment frame: UR5E Y-axis out, Magpie Z-axis out -->
                   <!-- quat rotates gripper so its Z aligns with UR5E +Y (-90° about X) -->
-                  <body name="gripper_attachment" gravcomp="1" pos="0 0.1 0" quat="0.7071068 -0.7071068 0 0">
+                  <body name="gripper_attachment" gravcomp="1" pos="0 0.134 0" quat="0.7071068 -0.7071068 0 0">
                     <include file="magpie_gripper.xml"/>
                   </body>
 
