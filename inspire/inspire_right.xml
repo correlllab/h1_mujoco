@@ -18,9 +18,6 @@
         </default>
         <default class="collision">
           <geom type="mesh" group="3" condim="4" friction="1 0.005 0.001" solref="0.002 1" solimp="0.9 0.95 0.001" />
-          <default class="eef_collision">
-            <geom type="cylinder" />
-          </default>
         </default>
      <site size="0.0035" type="sphere" rgba="1 0 0 1" group="3" />
     </default>
@@ -35,8 +32,6 @@
     <texture name="grey_grid" type="2d" builtin="checker" rgb1=".26 .26 .26" rgb2=".6 .6 .6" width="300" height="300" mark="edge" markrgb="1 1 1"/>
     <material name="grey_grid" texture="grey_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
     <texture name="skybox" type="skybox" builtin="gradient" rgb1=".66 .79 1" rgb2=".9 .91 .93" width="800" height="800"/>
-
-    <mesh name="ur5_mount" content_type="model/stl" file="ur5_mount.stl"/>
 
     <!-- collision meshes -->
     <mesh name="right_thumb_proximal_base" file="collision/right_thumb_proximal_base.stl"/>
@@ -63,7 +58,6 @@
   <worldbody>
     <light name="spotlight" mode="targetbodycom" target="base" pos="0 -1 2" />
     <site name="eeff" pos="0.070 0.016 0.155" group="3"/>
-    <geom type="mesh" contype="0" conaffinity="0" group="1" pos="0 0 -0.005" quat="0 0 0.7071068 0.7071068" density="0" mesh="ur5_mount" />
     <body name="base" pos="0.00 0 0.0" childclass="inspire">
       <geom type="mesh" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" mesh="right_base_link_visual" class="visual"/>
       <geom size="0.028 0.0139" pos="0 8.60444e-08 0.0136" quat="1.32679e-06 0 0 1" type="cylinder" class="collision" />

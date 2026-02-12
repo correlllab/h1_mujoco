@@ -32,6 +32,7 @@
     </body>
   </worldbody>
 
+  <!-- explicit contact pairs for _mjw models -->
   <!-- <contact>
     <pair geom1="box" geom2="collision_hand_right_palm_0"/>
     <pair geom1="box" geom2="collision_hand_right_thumb_1"/>
