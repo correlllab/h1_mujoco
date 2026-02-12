@@ -14,7 +14,7 @@
       <joint damping="0.1" armature="0.01" frictionloss="0.001" />
       <material specular="0.5" shininess="0.25" />
         <default class="visual">
-          <geom type="mesh" contype="0" conaffinity="0" group="2" />
+          <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.1 0.1 0.1 1"/>
         </default>
         <default class="collision">
           <geom type="mesh" group="3" condim="4" friction="1 0.005 0.001" solref="0.002 1" solimp="0.9 0.95 0.001" />
@@ -22,6 +22,7 @@
             <geom type="cylinder" />
           </default>
         </default>
+     <site size="0.0035" type="sphere" rgba="1 0 0 1" group="3" />
     </default>
   </default>
 
@@ -96,6 +97,11 @@
               <joint name="thumb_distal_joint" pos="0 0 0" axis="0 0 1" range="0 0.6" actuatorfrcrange="-1 1" />
               <geom type="mesh" mesh="right_thumb_distal" class="collision" />
               <geom class="visual" mesh="right_thumb_distal_visual" />
+              <site name="right_thumb_tip" pos="0.0159104 0.0156076 -0.00599021" />
+              <site name="track_hand_right_thumb_tip"
+                pos="0.0159104 0.0156076 -0.00599021" />
+              <site name="trace_hand_right_thumb_tip"
+                pos="0.0159104 0.0156076 -0.00599021" />
             </body>
           </body>
         </body>
@@ -110,6 +116,11 @@
           <joint name="index_intermediate_joint" pos="0 0 0" axis="0 0 1" range="-0.04545 1.56" actuatorfrcrange="-1 1" />
           <geom type="mesh" mesh="right_index_intermediate" class="collision" />
           <geom class="visual" mesh="right_index_intermediate_visual" />
+          <site name="right_index_tip" pos="-0.00412053 0.0433132 -0.00501047" />
+          <site name="track_hand_right_index_tip"
+            pos="-0.00412053 0.0433132 -0.00501047" />
+          <site name="trace_hand_right_index_tip"
+            pos="-0.00412053 0.0433132 -0.00501047" />
         </body>
       </body>
       <body name="middle_proximal" pos="-0.000285296 0.0129509 0.1371" quat="-9.38186e-07 -9.38185e-07 -0.707106 -0.707107" childclass="inspire">
@@ -122,6 +133,11 @@
           <joint name="middle_intermediate_joint" pos="0 0 0" axis="0 0 1" range="-0.04545 1.56" actuatorfrcrange="-1 1" />
           <geom type="mesh" mesh="right_middle_intermediate" class="collision" />
           <geom class="visual" mesh="right_middle_intermediate_visual" />
+          <site name="right_middle_tip" pos="-0.00426879 0.0466043 -0.00498678" />
+          <site name="track_hand_right_middle_tip"
+            pos="-0.00426879 0.0466043 -0.00498678" />
+          <site name="trace_hand_right_middle_tip"
+            pos="-0.00426879 0.0466043 -0.00498678" />
         </body>
       </body>
       <body name="ring_proximal" pos="-0.000285347 -0.00628633 0.13691" quat="9.62435e-07 9.13293e-07 0.688345 0.725383" childclass="inspire">
@@ -134,6 +150,11 @@
           <joint name="ring_intermediate_joint" pos="0 0 0" axis="0 0 1" range="-0.04545 1.56" actuatorfrcrange="-1 1" />
           <geom type="mesh" mesh="right_index_intermediate" class="collision" />
           <geom class="visual" mesh="right_index_intermediate_visual" />
+          <site name="right_ring_tip" pos="-0.00366554 0.0433541 -0.00501047" />
+          <site name="track_hand_right_ring_tip"
+            pos="-0.00366554 0.0433541 -0.00501047" />
+          <site name="trace_hand_right_ring_tip"
+            pos="-0.00366554 0.0433541 -0.00501047" />
         </body>
       </body>
       <body name="pinky_proximal" pos="-0.000285398 -0.0254871 0.13571" quat="9.85986e-07 8.87816e-07 0.669143 0.743134" childclass="inspire">
@@ -146,6 +167,11 @@
           <joint name="pinky_intermediate_joint" pos="0 0 0" axis="0 0 1" range="-0.04545 1.56" actuatorfrcrange="-1 1" />
           <geom type="mesh" mesh="right_pinky_intermediate" class="collision" />
           <geom class="visual" mesh="right_pinky_intermediate_visual" />
+          <site name="right_pinky_tip" pos="-0.00260734 0.0362776 -0.00501047" />
+          <site name="track_hand_right_pinky_tip"
+            pos="-0.00260734 0.0362776 -0.00501047" />
+          <site name="trace_hand_right_pinky_tip"
+            pos="-0.00260734 0.0362776 -0.00501047" />
         </body>
       </body>
     </body>
