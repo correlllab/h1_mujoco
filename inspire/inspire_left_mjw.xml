@@ -30,7 +30,6 @@
         <material name="left_groundplane" texture="left_groundplane" texuniform="true"
             texrepeat="5 5"
             reflectance="0.2" />
-        <mesh name="ur5_mount" content_type="model/stl" file="ur5_mount.stl"/>
         <mesh name="L_hand_base_link" content_type="model/stl" file="L_hand_base_link.STL" />
         <mesh name="Link11_L" content_type="model/stl" file="Link11_L.STL" />
         <mesh name="Link12_L" content_type="model/stl" file="Link12_L.STL" />
@@ -49,7 +48,6 @@
     <worldbody>
         <light pos="0 0 3.5" dir="0 0 -1" directional="false" />
         <body name="left_hand_base" pos="0 0 0.0" gravcomp="1">
-            <geom type="mesh" contype="0" conaffinity="0" group="1" pos="0 0.005 0" quat="0 0 0 1" density="0" mesh="ur5_mount" />
             <camera name="left_track" pos="0.868 -0.348 -0.175"
                 xyaxes="0.037 0.999 -0.000 0.011 -0.000 1.000" />
             <site name="left_palm" pos="0 -0.06 0" type="box"
