@@ -8,7 +8,8 @@ moves to the 'home' keyframe and grasps a hanging box.
 
 Visualizations:
   - MuJoCo viewer: contact force arrows, force closure indicator
-  - Matplotlib 4-panel: wrench cone, contact vs sensor, time series, quality
+  - Matplotlib (up to 6 panels): wrench cone, contact vs sensor, time series,
+    quality, contact count (optional), local quality window (optional)
 
 Usage:
     # Live simulation
@@ -24,6 +25,9 @@ Controls (live mode):
     P         - Pause/resume simulation
     R         - Reset to home keyframe
     S         - Print detailed status
+    F         - Toggle friction cone visualization
+    C         - Toggle contact count plot
+    L         - Toggle local Ferrari-Canny window plot
     Q/Esc     - Quit
 """
 
@@ -223,6 +227,10 @@ class FingerForceVisualizer:
         # Control
         self.running = True
         self.paused = False
+        self.show_friction_cones = True
+        self.show_contact_count_plot = False
+        self.show_fc_local_plot = False
+        self.fc_local_window = 0.2  # seconds
         self.viewer = None
         self.viz_thread = None
 
@@ -686,6 +694,47 @@ class FingerForceVisualizer:
             scn.geoms[scn.ngeom].rgba[:] = color
             scn.ngeom += 1
 
+        # # Draw friction cones at contact points (if enabled)
+        # if self.show_friction_cones:
+        #     mu = self.model.geom_friction[self.box_geom_id, 0]
+        #     cone_height = 0.015  # meters
+        #     for contact in state.contacts:
+        #         if scn.ngeom >= scn.maxgeom:
+        #             break
+
+        #         # Get contact frame (normal, tangent1, tangent2)
+        #         normal = contact.frame[0]
+        #         tangent1 = contact.frame[1]
+        #         tangent2 = contact.frame[2]
+
+        #         # Build rotation matrix from contact frame
+        #         # MuJoCo pyramid has Z-axis pointing up, so we align it with contact normal
+        #         # Columns: tangent1 (X), tangent2 (Y), normal (Z)
+        #         R_contact = np.column_stack([tangent1, tangent2, normal])
+
+        #         # Friction cone: base radius = height * tan(atan(mu)) = height * mu
+        #         base_radius = cone_height * mu
+        #         num_edges = 8  # Octagonal approximation for smoother cone
+
+        #         # mju_encodePyramid(pyramid, height, num_edges)
+        #         # Creates a pyramid with given height and number of base edges
+        #         # pyramid output: [half_width_x, half_width_y, half_height, unused, unused]
+        #         size = np.array([
+        #             base_radius,
+        #             base_radius,
+        #             cone_height / 2
+        #         ], dtype=np.float64)
+
+        #         mujoco.mjv_initGeom(
+        #             scn.geoms[scn.ngeom],
+        #             mujoco.mjtGeom.mjGEOM_PYRAMID,
+        #             size,
+        #             contact.position,
+        #             R_contact.flatten(),
+        #         )
+
+        #         scn.ngeom += 1
+
         # Force closure indicator sphere at object center
         if scn.ngeom < scn.maxgeom:
             fc_color = (np.array([0.1, 0.9, 0.1, 0.6]) if state.force_closure
@@ -716,6 +765,15 @@ class FingerForceVisualizer:
             self.setup_simulation()
         elif key == glfw.KEY_S:
             self.print_status()
+        elif key == glfw.KEY_C:
+            self.show_contact_count_plot = not self.show_contact_count_plot
+            print(f"Contact count plot: {'shown' if self.show_contact_count_plot else 'hidden'}")
+        elif key == glfw.KEY_L:
+            self.show_fc_local_plot = not self.show_fc_local_plot
+            print(f"Local Ferrari-Canny plot: {'shown' if self.show_fc_local_plot else 'hidden'}")
+        # elif key == glfw.KEY_F:
+        #     self.show_friction_cones = not self.show_friction_cones
+        #     print(f"Friction cones: {'shown' if self.show_friction_cones else 'hidden'}")
 
     def print_status(self):
         """Print detailed grasp state to console."""
@@ -775,19 +833,25 @@ class FingerForceVisualizer:
         fig = None
         try:
             plt.ion()
-            fig = plt.figure(figsize=(14, 10))
+            fig = plt.figure(figsize=(16, 10))
             fig.suptitle('Inspire Hand Grasp Force Analysis', fontsize=14)
 
-            # Panel 1: 3D force cone (top-left)
-            ax_cone = fig.add_subplot(2, 2, 1, projection='3d')
-            # Panel 2: contact vs sensor bar (top-right)
-            ax_compare = fig.add_subplot(2, 2, 2)
-            # Panel 3: time series (bottom-left)
-            ax_ts = fig.add_subplot(2, 2, 3)
-            # Panel 4: grasp quality (bottom-right)
-            ax_quality = fig.add_subplot(2, 2, 4)
+            # Create 2x3 grid for up to 6 panels
+            gs = fig.add_gridspec(2, 3, hspace=0.35, wspace=0.3)
 
-            fig.tight_layout(rect=[0, 0, 1, 0.95])
+            # Fixed panels (always shown)
+            ax_cone = fig.add_subplot(gs[0, 0], projection='3d')
+            ax_compare = fig.add_subplot(gs[0, 1])
+            ax_ts = fig.add_subplot(gs[1, 0])
+            ax_quality = fig.add_subplot(gs[1, 1])
+
+            # Optional panels (shown on demand)
+            ax_contacts = fig.add_subplot(gs[0, 2])
+            ax_fc_local = fig.add_subplot(gs[1, 2])
+
+            # Initially hide optional panels
+            ax_contacts.set_visible(False)
+            ax_fc_local.set_visible(False)
 
             while self.running:
                 if self.current_state is None:
@@ -798,6 +862,10 @@ class FingerForceVisualizer:
                 history = self.history
 
                 try:
+                    # Update visibility of optional panels
+                    ax_contacts.set_visible(self.show_contact_count_plot)
+                    ax_fc_local.set_visible(self.show_fc_local_plot)
+
                     # Panel 1: Force cone (3D force subspace)
                     ax_cone.cla()
                     ax_cone.set_title(
@@ -914,12 +982,52 @@ class FingerForceVisualizer:
                             t, 0, fc, where=(fc <= 0),
                             color='red', alpha=0.15, interpolate=True)
 
-                        # Annotate contact count on secondary axis
-                        ax_nc = ax_quality.twinx()
-                        ax_nc.plot(t, history.num_contacts, 'k-',
-                                  alpha=0.3, linewidth=0.8)
-                        ax_nc.set_ylabel('# Contacts', color='gray', fontsize=8)
-                        ax_nc.tick_params(axis='y', labelcolor='gray', labelsize=7)
+                    # Panel 5: Contact count over time (optional)
+                    if self.show_contact_count_plot:
+                        ax_contacts.cla()
+                        ax_contacts.set_title('Contact Count', fontsize=10)
+                        ax_contacts.set_xlabel('Time (s)')
+                        ax_contacts.set_ylabel('# Contacts')
+                        if history.times:
+                            t = np.array(history.times)
+                            nc = np.array(history.num_contacts)
+                            ax_contacts.plot(t, nc, 'k-', linewidth=2)
+                            ax_contacts.fill_between(t, 0, nc, alpha=0.2, color='gray')
+                            max_contacts = max(nc) if len(nc) > 0 else 5
+                            ax_contacts.set_ylim([0, max_contacts + 1])
+                            ax_contacts.grid(True, alpha=0.3)
+
+                    # Panel 6: Local Ferrari-Canny (windowed view, optional)
+                    if self.show_fc_local_plot:
+                        ax_fc_local.cla()
+                        ax_fc_local.set_title(
+                            f'Ferrari-Canny (last {self.fc_local_window}s)',
+                            fontsize=10)
+                        ax_fc_local.set_xlabel('Time (s)')
+                        ax_fc_local.set_ylabel('Metric')
+                        if history.times and len(history.times) > 0:
+                            t = np.array(history.times)
+                            fc = np.array(history.ferrari_canny)
+                            # Window filter
+                            current_time = t[-1]
+                            window_start = current_time - self.fc_local_window
+                            mask = t >= window_start
+                            t_local = t[mask]
+                            fc_local = fc[mask]
+                            if len(t_local) > 0:
+                                ax_fc_local.plot(t_local, fc_local, 'b-',
+                                               linewidth=1.5)
+                                ax_fc_local.axhline(y=0, color='r', linestyle='--',
+                                                  alpha=0.4)
+                                ax_fc_local.fill_between(t_local, 0, fc_local,
+                                    where=(fc_local > 0), color='green', alpha=0.15)
+                                ax_fc_local.fill_between(t_local, 0, fc_local,
+                                    where=(fc_local <= 0), color='red', alpha=0.15)
+                                # Auto-scale y-axis for better visibility of small values
+                                fc_min, fc_max = fc_local.min(), fc_local.max()
+                                margin = max(0.001, (fc_max - fc_min) * 0.1)
+                                ax_fc_local.set_ylim([fc_min - margin, fc_max + margin])
+                                ax_fc_local.grid(True, alpha=0.3)
 
                     fig.tight_layout(rect=[0, 0, 1, 0.95])
                     fig.canvas.draw_idle()
@@ -985,6 +1093,9 @@ class FingerForceVisualizer:
         print("  P     - Pause/resume")
         print("  R     - Reset to home keyframe")
         print("  S     - Print detailed status")
+        print("  F     - Toggle friction cone visualization")
+        print("  C     - Toggle contact count plot")
+        print("  L     - Toggle local Ferrari-Canny window plot")
         print("  Q/Esc - Quit")
         print()
 

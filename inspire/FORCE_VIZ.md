@@ -30,18 +30,22 @@ Tracks contact forces, fingertip sensor wrenches, and evaluates grasp stability 
 #### MuJoCo Viewer (3D)
 - **Contact force arrows**: Color-coded by finger, drawn at contact points (solid, force ON finger)
 - **Sensor force arrows**: Semi-transparent, drawn at fingertip sites (dashed-style)
+- **Friction cones**: Semi-transparent pyramids at each contact point (toggle with `F` key)
+  - Base radius proportional to friction coefficient (μ = 0.5 → 26.6° half-angle)
+  - Shows the feasible force directions at each contact
+  - Color-coded by finger
 - **Force closure indicator**: Green/red sphere at object center
   - Green = force closure achieved
   - Red = no force closure
   - Size scales with Ferrari-Canny metric
 
-#### Matplotlib (4-panel window)
+#### Matplotlib (up to 6 panels)
 1. **Top-left: Force Cone**
    - 3D scatter of primitive wrench force components
    - Convex hull surface (green if force closure, red otherwise)
    - Origin marked with black X
 
-2. **Top-right: Contact vs Sensor**
+2. **Top-middle: Contact vs Sensor**
    - Grouped bar chart per finger
    - Blue bars = contact-based forces
    - Orange bars = sensor-based forces
@@ -53,11 +57,19 @@ Tracks contact forces, fingertip sensor wrenches, and evaluates grasp stability 
    - Dashed lines = sensor forces
    - Color-coded by finger
 
-4. **Bottom-right: Grasp Quality**
+4. **Bottom-middle: Grasp Quality**
    - Ferrari-Canny metric over time (blue line)
    - Green fill = force closure region
    - Red fill = no closure region
-   - Gray line (secondary axis) = number of contacts
+
+5. **Top-right: Contact Count (toggleable with 'C')**
+   - Number of active contacts over time
+   - Area plot showing contact count history
+
+6. **Bottom-right: Local Ferrari-Canny (toggleable with 'L')**
+   - Windowed view (last 5 seconds) of Ferrari-Canny metric
+   - Auto-scaled y-axis for better visibility of small variations
+   - Useful when metric stabilizes at small positive values
 
 ### Recording & Replay
 - `--record data.npz` saves timestep history
@@ -94,6 +106,9 @@ python finger_force_viz.py --no-viz
 | **P** | Pause/resume simulation |
 | **R** | Reset to home keyframe |
 | **S** | Print detailed status to console |
+| **F** | Toggle friction cone visualization |
+| **C** | Toggle contact count plot |
+| **L** | Toggle local Ferrari-Canny window plot |
 | **Q** / **Esc** | Quit |
 
 ## Files Modified
