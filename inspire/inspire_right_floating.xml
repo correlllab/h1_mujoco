@@ -27,11 +27,6 @@
     <material class="inspire" name="black" rgba="0.033 0.033 0.033 1" />
     <material class="inspire" name="jointgray" rgba="0.278 0.278 0.278 1" />
     <material class="inspire" name="linkgray" rgba="0.82 0.82 0.82 1" />
-    <texture name="blue_grid" type="2d" builtin="checker" rgb1=".02 .14 .44" rgb2=".27 .55 1" width="300" height="300" mark="edge" markrgb="1 1 1"/>
-    <material name="blue_grid" texture="blue_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <texture name="grey_grid" type="2d" builtin="checker" rgb1=".26 .26 .26" rgb2=".6 .6 .6" width="300" height="300" mark="edge" markrgb="1 1 1"/>
-    <material name="grey_grid" texture="grey_grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <texture name="skybox" type="skybox" builtin="gradient" rgb1=".66 .79 1" rgb2=".9 .91 .93" width="800" height="800"/>
 
     <mesh name="ur5_mount" file="ur5_mount.stl"/>
 
@@ -231,7 +226,7 @@
     <joint joint1="thumb_distal_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
   </equality>
 
-  <actuator>
+  <!-- <actuator>
     <position class="inspire" name="right_pos_x_position" joint="right_pos_x" ctrlrange="-0.10 0.10" />
     <position class="inspire" name="right_pos_y_position" joint="right_pos_y" ctrlrange="-0.10 0.10" />
     <position class="inspire" name="right_pos_z_position" joint="right_pos_z" ctrlrange="-0.10 0.10" />
@@ -245,7 +240,7 @@
     <position class="inspire" name="index" joint="index_proximal_joint" ctrlrange="0 1.57"/>
     <position class="inspire" name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0 0.6"/>
     <position class="inspire" name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308"/>
-  </actuator>
+  </actuator> -->
 
 
 </mujoco>
