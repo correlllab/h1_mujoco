@@ -65,15 +65,22 @@
         xyaxes="0.037 0.999 -0.000 0.011 -0.000 1.000" />
       <site name="right_palm" pos="0 -0.06 0" type="box"
         size="0.01 0.02 0.03" quat="0 0 -1 1" />
+
+      <!-- Harry Potter DoFs -->
       <joint name="right_pos_x" type="slide" pos="0 0 0" axis="1 0 0" range="-1.0 1.0" />
       <joint name="right_pos_y" type="slide" pos="0 0 0" axis="0 1 0" range="-1.0 1.0" />
       <joint name="right_pos_z" type="slide" pos="0 0 0" axis="0 0 1" range="-1.0 1.0" />
       <!-- create rotation x, y, z joints -->
-      <joint name="right_rot_x" type="hinge" pos="0 0 0" axis="1 0 0" range="-6.28 6.28" />
-      <joint name="right_rot_y" type="hinge" pos="0 0 0" axis="0 1 0" range="-6.28 6.28" />
-      <joint name="right_rot_z" type="hinge" pos="0 0 0" axis="0 0 1" range="-6.28 6.28" />
+      <joint name="right_rot_x" type="hinge" pos="0 0 0" axis="1 0 0" range="-3.14 3.14" />
+      <joint name="right_rot_y" type="hinge" pos="0 0 0" axis="0 1 0" range="-3.14 3.14" />
+      <joint name="right_rot_z" type="hinge" pos="0 0 0" axis="0 0 1" range="-3.14 3.14" />
 
-      <geom type="mesh" contype="0" conaffinity="0" group="1" pos="0 0 -0.005" quat="0 0 0.7071068 0.7071068" density="0" mesh="ur5_mount" />
+      <!-- Optoforce and UR5-Inspire Adaptor -->
+      <geom name="optoforce" size="0.035 0.0175" pos="0 0 -0.0395" density="0" type="cylinder" class="visual" />
+      <geom name="optoforce_collision" size="0.035 0.0175" pos="0 0 -0.0395" density="0" type="cylinder" class="collision" />
+      <geom name="ur5_mount" type="mesh" pos="0 0 -0.005" quat="0 0 0.7071068 0.7071068" density="0" mesh="ur5_mount" class="visual"/>
+      <geom name="ur5_mount_collision" type="mesh" pos="0 0 -0.005" quat="0 0 0.7071068 0.7071068" density="0" mesh="ur5_mount" class="collision"/>
+
       <geom type="mesh" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" mesh="right_base_link_visual" class="visual"/>
       <geom size="0.028 0.0139" pos="0 8.60444e-08 0.0136" quat="1.32679e-06 0 0 1" type="cylinder" class="collision" />
       <geom size="0.01955 0.0101 0.0287" pos="0.0032 2.31927e-07 0.038" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision" />
@@ -225,12 +232,12 @@
   </equality>
 
   <actuator>
-    <position class="inspire" name="right_pos_x_position" joint="right_pos_x" kp="1000" />
-    <position class="inspire" name="right_pos_y_position" joint="right_pos_y" kp="1000" />
-    <position class="inspire" name="right_pos_z_position" joint="right_pos_z" kp="1000" />
-    <position class="inspire" name="right_rot_x_position" joint="right_rot_x" kp="1000" />
-    <position class="inspire" name="right_rot_y_position" joint="right_rot_y" kp="1000" />
-    <position class="inspire" name="right_rot_z_position" joint="right_rot_z" kp="1000" />
+    <position class="inspire" name="right_pos_x_position" joint="right_pos_x" ctrlrange="-0.10 0.10" />
+    <position class="inspire" name="right_pos_y_position" joint="right_pos_y" ctrlrange="-0.10 0.10" />
+    <position class="inspire" name="right_pos_z_position" joint="right_pos_z" ctrlrange="-0.10 0.10" />
+    <position class="inspire" name="right_rot_x_position" joint="right_rot_x" ctrlrange="-6.28 6.28" />
+    <position class="inspire" name="right_rot_y_position" joint="right_rot_y" ctrlrange="-6.28 6.28" />
+    <position class="inspire" name="right_rot_z_position" joint="right_rot_z" ctrlrange="-6.28 6.28" />
 
     <position class="inspire" name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.57"/>
     <position class="inspire" name="ring" joint="ring_proximal_joint" ctrlrange="0 1.57"/>
