@@ -13,7 +13,7 @@ Usage:
     python workspace_viz.py --save workspace.png     # Save to image
     python workspace_viz.py --stats-only             # Print stats only
     python workspace_viz.py --list-sites             # List available sites
-    python workspace_viz.py --add-site palm right_palm thumb  # Add custom site
+    python workspace_viz.py --add-site palm palm thumb  # Add custom site
 """
 
 import argparse
@@ -27,7 +27,7 @@ import numpy as np
 from matplotlib.widgets import CheckButtons
 
 # Default model path
-DEFAULT_MODEL = Path(__file__).parent / "inspire" / "right_ur5_mount.xml"
+DEFAULT_MODEL = Path(__file__).parent / "inspire_right.xml"
 
 
 @dataclass
@@ -86,12 +86,12 @@ class InspireWorkspaceVisualizer:
             name="thumb",
             tip_site="right_thumb_tip",
             actuated_joints=[
-                "right_thumb_proximal_yaw_joint",
-                "right_thumb_proximal_pitch_joint",
+                "thumb_proximal_yaw_joint",
+                "thumb_proximal_pitch_joint",
             ],
             coupled_joints={
-                "right_thumb_intermediate_joint": "right_thumb_proximal_pitch_joint",
-                "right_thumb_distal_joint": "right_thumb_intermediate_joint",
+                "thumb_intermediate_joint": "thumb_proximal_pitch_joint",
+                "thumb_distal_joint": "thumb_intermediate_joint",
             },
             color=self.FINGER_COLORS["thumb"],
         )
@@ -101,9 +101,9 @@ class InspireWorkspaceVisualizer:
             configs[finger] = FingerConfig(
                 name=finger,
                 tip_site=f"right_{finger}_tip",
-                actuated_joints=[f"right_{finger}_proximal_joint"],
+                actuated_joints=[f"{finger}_proximal_joint"],
                 coupled_joints={
-                    f"right_{finger}_intermediate_joint": f"right_{finger}_proximal_joint"
+                    f"{finger}_intermediate_joint": f"{finger}_proximal_joint"
                 },
                 color=self.FINGER_COLORS[finger],
             )
@@ -353,11 +353,11 @@ class InspireWorkspaceVisualizer:
             )
             scatters[finger] = scatter
 
-        # Add reference point for palm
+        # Add reference point for end effector/palm
         self.data.qpos[:] = 0
         mujoco.mj_forward(self.model, self.data)
-        palm_pos = self._get_site_position("right_palm")
-        ax.scatter(*palm_pos, c='black', s=50, marker='s', label='Palm')
+        palm_pos = self._get_site_position("eeff")
+        ax.scatter(*palm_pos, c='black', s=50, marker='s', label='Base')
 
         # Set labels and title
         ax.set_xlabel('X (m)')
