@@ -1,4 +1,4 @@
-<mujoco model="inspire scene">
+<mujoco model="Inspire with Hanging Box">
   <include file="inspire_right.xml"/>
   <!-- <include file="right_ur5_mount.xml"/> -->
 

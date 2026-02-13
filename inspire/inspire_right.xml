@@ -1,4 +1,4 @@
-<mujoco model="inspire_hand_right">
+<mujoco model="Inspire RH">
   <compiler angle="radian" meshdir="assets" />
 
   <visual>
