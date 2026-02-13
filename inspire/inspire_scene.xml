@@ -23,9 +23,9 @@
   <worldbody>
     <light pos="0 0 1"/>
     <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
-    <geom name="floor" pos="0 0 -0.022" size="0 0 0.05" type="plane" material="groundplane"/>
-    <site size="0.002" pos="0.07 0.016 0.2" name="anchor"/>
-    <body name="object" pos="0.07 0.016 0.15">
+    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
+    <site size="0.002"  pos="0.07 0.029 0.2" name="anchor"/>
+    <body name="object" pos="0.07 0.029 0.15">
       <freejoint/>
       <geom name="box" type="box" size="0.015 0.015 0.015" rgba=".5 .7 .5 1" friction=".5" priority="1"/>
       <site size="0.002" pos="0.015 0.015 0.015" name="hook"/>
@@ -53,4 +53,22 @@
       <site site="anchor"/>
     </spatial>
   </tendon>
+
+  <keyframe>
+    <key name="home" ctrl="0.5 0.5 0.67 0.67 0.22 1.31"/>
+  </keyframe>
+
+  <sensor>
+    <force name="thumb_tip_force" site="right_thumb_tip"/>
+    <force name="index_tip_force" site="right_index_tip"/>
+    <force name="middle_tip_force" site="right_middle_tip"/>
+    <force name="ring_tip_force" site="right_ring_tip"/>
+    <force name="pinky_tip_force" site="right_pinky_tip"/>
+    <torque name="thumb_tip_torque" site="right_thumb_tip"/>
+    <torque name="index_tip_torque" site="right_index_tip"/>
+    <torque name="middle_tip_torque" site="right_middle_tip"/>
+    <torque name="ring_tip_torque" site="right_ring_tip"/>
+    <torque name="pinky_tip_torque" site="right_pinky_tip"/>
+  </sensor>
+
 </mujoco>
