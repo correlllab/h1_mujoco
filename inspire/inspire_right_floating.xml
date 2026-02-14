@@ -225,13 +225,28 @@
     <joint joint1="thumb_distal_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
   </equality>
 
-  <actuator>
+  <!-- <actuator>
     <position class="inspire" name="right_pos_x_position" joint="right_pos_x" ctrlrange="-0.10 0.10" />
     <position class="inspire" name="right_pos_y_position" joint="right_pos_y" ctrlrange="-0.10 0.10" />
-    <position class="inspire" name="right_pos_z_position" joint="right_pos_z" ctrlrange="-0.10 0.10" />
-    <position class="inspire" name="right_rot_x_position" joint="right_rot_x" ctrlrange="-6.28 6.28" />
-    <position class="inspire" name="right_rot_y_position" joint="right_rot_y" ctrlrange="-6.28 6.28" />
-    <position class="inspire" name="right_rot_z_position" joint="right_rot_z" ctrlrange="-6.28 6.28" />
+    <position class="inspire" name="right_pos_z_position" joint="right_pos_z" ctrlrange="-0.10 0.30" />
+    <position class="inspire" name="right_rot_x_position" joint="right_rot_x" ctrlrange="-0.28 0.28" />
+    <position class="inspire" name="right_rot_y_position" joint="right_rot_y" ctrlrange="-0.28 0.28" />
+    <position class="inspire" name="right_rot_z_position" joint="right_rot_z" ctrlrange="-0.28 0.28" />
+
+    <position class="inspire" name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.57"/>
+    <position class="inspire" name="ring" joint="ring_proximal_joint" ctrlrange="0 1.57"/>
+    <position class="inspire" name="middle" joint="middle_proximal_joint" ctrlrange="0 1.57"/>
+    <position class="inspire" name="index" joint="index_proximal_joint" ctrlrange="0 1.57"/>
+    <position class="inspire" name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0 0.6"/>
+    <position class="inspire" name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308"/>
+  </actuator> -->
+  <actuator>
+    <position class="inspire" name="right_pos_x_position" joint="right_pos_x" inheritrange="1" />
+    <position class="inspire" name="right_pos_y_position" joint="right_pos_y" inheritrange="1" />
+    <position class="inspire" name="right_pos_z_position" joint="right_pos_z" inheritrange="1" />
+    <position class="inspire" name="right_rot_x_position" joint="right_rot_x" inheritrange="1" />
+    <position class="inspire" name="right_rot_y_position" joint="right_rot_y" inheritrange="1" />
+    <position class="inspire" name="right_rot_z_position" joint="right_rot_z" inheritrange="1" />
 
     <position class="inspire" name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.57"/>
     <position class="inspire" name="ring" joint="ring_proximal_joint" ctrlrange="0 1.57"/>
