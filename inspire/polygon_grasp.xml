@@ -1,0 +1,217 @@
+<mujoco model="Inspire Polygon Grasp">
+
+  <size memory="1M"/>
+
+  <include file="inspire_right_floating.xml"/>
+
+  <statistic extent="1.5" center="0.1 0.2 0.3"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="60" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+
+    <!-- Polygon visualization materials -->
+    <material name="polygon_edge" rgba="0.1 0.9 0.1 0.8"/>
+    <material name="polygon_center" rgba="0.9 0.1 0.9 0.9"/>
+  </asset>
+
+  <worldbody>
+    <site name="world"/>
+    <light pos="0 0 1"/>
+    <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
+    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- Virtual control body for high-level polygon commands -->
+    <!-- Split into 2 bodies to stay under 6 DOF limit per body -->
+    <body name="polygon_control_pose" pos="0.07 0.016 0.155">
+      <!-- Position control via 3 slide joints -->
+      <joint name="polygon_pos_x" type="slide" axis="1 0 0" pos="0 0 0"
+             range="-0.5 0.5" stiffness="0" damping="0"/>
+      <joint name="polygon_pos_y" type="slide" axis="0 1 0" pos="0 0 0"
+             range="-0.5 0.5" stiffness="0" damping="0"/>
+      <joint name="polygon_pos_z" type="slide" axis="0 0 1" pos="0 0 0"
+             range="0.0 0.5" stiffness="0" damping="0"/>
+
+      <!-- Orientation control via 3 hinge joints -->
+      <joint name="polygon_rot_x" type="hinge" axis="1 0 0" pos="0 0 0"
+             range="-3.14 3.14" stiffness="0" damping="0"/>
+      <joint name="polygon_rot_y" type="hinge" axis="0 1 0" pos="0 0 0"
+             range="-3.14 3.14" stiffness="0" damping="0"/>
+      <joint name="polygon_rot_z" type="hinge" axis="0 0 1" pos="0 0 0"
+             range="-3.14 3.14" stiffness="0" damping="0"/>
+
+      <!-- Visual marker for desired polygon center (semi-transparent cyan) -->
+      <geom name="polygon_control_marker" type="sphere" size="0.006"
+            rgba="0.1 0.9 0.9 0.5" contype="0" conaffinity="0" group="1"/>
+
+      <!-- Child body for area control (1 additional DOF) -->
+      <body name="polygon_control_area" pos="0 0 0">
+        <!-- Area control via slider joint -->
+        <joint name="polygon_area_joint" type="slide" axis="1 0 0" pos="0 0 0"
+               range="0.0005 0.005" stiffness="0" damping="0"/>
+        <!-- Tiny dummy geom to provide mass (invisible) -->
+        <geom type="sphere" size="0.0001" rgba="0 0 0 0" contype="0" conaffinity="0" mass="0.001"/>
+      </body>
+    </body>
+
+    <!-- Polygon mocap body - represents the ACTUAL centroid of the fingertip polygon -->
+    <body name="polygon_center" mocap="true" pos="0.07 0.016 0.155">
+      <!-- Central marker at actual polygon centroid -->
+      <geom name="polygon_centroid_marker" type="sphere" size="0.008"
+            rgba="0.9 0.1 0.9 0.9" contype="0" conaffinity="0" group="1"/>
+
+      <!-- Sites for visualizing polygon edges -->
+      <!-- These will be updated programmatically to connect fingertips -->
+      <site name="polygon_vertex_thumb" pos="0 0 0" type="sphere" size="0.003"
+            rgba="1 0.2 0.2 0.8" group="2"/>
+      <site name="polygon_vertex_index" pos="0 0 0" type="sphere" size="0.003"
+            rgba="0.2 0.4 1 0.8" group="2"/>
+      <site name="polygon_vertex_middle" pos="0 0 0" type="sphere" size="0.003"
+            rgba="0.2 0.8 0.2 0.8" group="2"/>
+      <site name="polygon_vertex_ring" pos="0 0 0" type="sphere" size="0.003"
+            rgba="0.8 0.2 0.8 0.8" group="2"/>
+      <site name="polygon_vertex_pinky" pos="0 0 0" type="sphere" size="0.003"
+            rgba="1 0.6 0.1 0.8" group="2"/>
+
+      <!-- Best-fit plane visualization (normal vector) is drawn programmatically -->
+    </body>
+
+    <!-- Optional: target object for grasping -->
+    <body name="box" pos="0.4 0.5 0.2">
+      <freejoint/>
+      <geom name="box" type="box" size="0.02 0.03 0.02" priority="1" condim="6" friction="1 .001 .003"/>
+      <site name="box1" type="box" pos="0 .026 0" size="0.021 0.005 0.021" rgba="1 .1 .1 1"/>
+      <site name="box2" type="box" pos="0 -.026 0" size="0.021 0.005 0.021" rgba=".1 .1 1 1"/>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <!-- Position sensors for fingertips (for polygon computation) -->
+    <framepos name="hand" objtype="site" objname="eeff"/>
+    <framepos name="box" objtype="geom" objname="box"/>
+    <framepos name="box1" objtype="site" objname="box1"/>
+    <framepos name="box2" objtype="site" objname="box2"/>
+
+    <!-- Fingertip positions -->
+    <framepos name="thumb_tip_pos" objtype="site" objname="right_thumb_tip"/>
+    <framepos name="index_tip_pos" objtype="site" objname="right_index_tip"/>
+    <framepos name="middle_tip_pos" objtype="site" objname="right_middle_tip"/>
+    <framepos name="ring_tip_pos" objtype="site" objname="right_ring_tip"/>
+    <framepos name="pinky_tip_pos" objtype="site" objname="right_pinky_tip"/>
+
+    <!-- Polygon center mocap position -->
+    <framepos name="polygon_center_pos" objtype="body" objname="polygon_center"/>
+
+    <!-- Force/torque sensors at fingertips -->
+    <force name="thumb_tip_force" site="right_thumb_tip"/>
+    <force name="index_tip_force" site="right_index_tip"/>
+    <force name="middle_tip_force" site="right_middle_tip"/>
+    <force name="ring_tip_force" site="right_ring_tip"/>
+    <force name="pinky_tip_force" site="right_pinky_tip"/>
+    <torque name="thumb_tip_torque" site="right_thumb_tip"/>
+    <torque name="index_tip_torque" site="right_index_tip"/>
+    <torque name="middle_tip_torque" site="right_middle_tip"/>
+    <torque name="ring_tip_torque" site="right_ring_tip"/>
+    <torque name="pinky_tip_torque" site="right_pinky_tip"/>
+  </sensor>
+
+  <!-- High-level polygon control actuators (virtual control signals) -->
+  <actuator>
+    <!-- These 7 actuators define the DESIRED polygon state -->
+    <!-- The Python controller will read these and compute IK to achieve them -->
+
+    <!-- Polygon surface area control (in m²) -->
+    <!-- Range: 5-40 cm² = 0.0005-0.004 m² (based on hand kinematics) -->
+    <general name="polygon_surface_area" joint="polygon_area_joint"
+             dyntype="none" gaintype="fixed" biastype="none"
+             ctrlrange="0.0005 0.004" gear="1"/>
+
+    <!-- Polygon position control (x, y, z in meters) -->
+    <position name="polygon_x" joint="polygon_pos_x"
+              ctrlrange="-0.5 0.5" kp="0" dampratio="0"/>
+    <position name="polygon_y" joint="polygon_pos_y"
+              ctrlrange="-0.5 0.5" kp="0" dampratio="0"/>
+    <position name="polygon_z" joint="polygon_pos_z"
+              ctrlrange="0.0 0.5" kp="0" dampratio="0"/>
+
+    <!-- Polygon orientation control (roll, pitch, yaw in radians) -->
+    <position name="polygon_rx" joint="polygon_rot_x"
+              ctrlrange="-3.14 3.14" kp="0" dampratio="0"/>
+    <position name="polygon_ry" joint="polygon_rot_y"
+              ctrlrange="-3.14 3.14" kp="0" dampratio="0"/>
+    <position name="polygon_rz" joint="polygon_rot_z"
+              ctrlrange="-3.14 3.14" kp="0" dampratio="0"/>
+  </actuator>
+
+  <keyframe>
+    <!-- world position -->
+     <!-- wx wy wz wrx wry wrz -->
+    <!-- hand qpos -->
+     <!-- 0 = thumb, 1 = index, ..., 4 = pinky-->
+     <!-- 0_yaw, 0_prox, 0_int, 0_dist -->
+     <!-- 1_prox, 1_int -->
+     <!-- ... -->
+     <!-- 4_prox, 4_int -->
+    <!-- Box qpos, x y z qw qx qy qz -->
+    <key name="home"
+      qpos="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0 0
+      0 0
+      0 0
+      0 0
+      0 0
+      -0.026895 0 0.02
+      0 0 0 0
+      "
+      ctrl="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0 0 0 0
+      "
+    />
+
+    <!-- Example: spread fingers to form larger polygon -->
+    <key name="spread"
+      qpos="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0 0
+      0.8 0.8
+      0.8 0.8
+      0.8 0.8
+      0.8 0.8
+      -0.026895 0 0.02
+      0 0 0 0
+      "
+      ctrl="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0.8 0.8 0.8 0.8
+      "
+    />
+
+    <!-- Example: close fingers to form smaller polygon -->
+    <key name="close"
+      qpos="
+      -0.11 -0.015 0.17 0 2.17 0
+      0.5 0.3 0 0
+      1.2 1.2
+      1.2 1.2
+      1.2 1.2
+      1.2 1.2
+      -0.026895 0 0.02
+      0 0 0 0
+      "
+      ctrl="
+      -0.11 -0.015 0.17 0 2.17 0
+      0.5 0.3 0.71 0.71 0.15 1.31
+      "
+    />
+  </keyframe>
+</mujoco>
