@@ -1,0 +1,90 @@
+<mujoco model="Inspire Grasp">
+
+  <size memory="1M"/>
+
+  <include file="inspire_right_floating.xml"/>
+
+  <statistic extent="1.5" center="0.1 0.2 0.3"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="60" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <site name="world"/>
+    <light pos="0 0 1"/>
+    <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
+    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <body name="box" pos="0.4 0.5 0.2">
+      <freejoint/>
+      <geom name="box"  type="box" size="0.02 0.03 0.02" priority="1" condim="6" friction="1 .001 .003"/>
+      <site name="box1" type="box" pos="0  .026 0" size="0.021 0.005 0.021" rgba="1 .1 .1 1"/>
+      <site name="box2" type="box" pos="0 -.026 0" size="0.021 0.005 0.021" rgba=".1 .1 1 1"/>
+    </body>
+  </worldbody>
+
+
+  <sensor>
+    <!-- Position sensors for visualization and computation -->
+    <framepos name="hand" objtype="site" objname="eeff"/>
+    <framepos name="box" objtype="geom" objname="box"/>
+    <framepos name="box1" objtype="site" objname="box1"/>
+    <framepos name="box2" objtype="site" objname="box2"/>
+    <framepos name="trace0" objtype="site" objname="trace_hand_right_thumb_tip"/>
+    <framepos name="trace1" objtype="site" objname="trace_hand_right_index_tip"/>
+    <framepos name="trace2" objtype="site" objname="trace_hand_right_middle_tip"/>
+    <framepos name="trace3" objtype="site" objname="trace_hand_right_ring_tip"/>
+    <framepos name="trace4" objtype="site" objname="trace_hand_right_pinky_tip"/>
+  </sensor>
+
+  <sensor>
+    <force name="thumb_tip_force" site="right_thumb_tip"/>
+    <force name="index_tip_force" site="right_index_tip"/>
+    <force name="middle_tip_force" site="right_middle_tip"/>
+    <force name="ring_tip_force" site="right_ring_tip"/>
+    <force name="pinky_tip_force" site="right_pinky_tip"/>
+    <torque name="thumb_tip_torque" site="right_thumb_tip"/>
+    <torque name="index_tip_torque" site="right_index_tip"/>
+    <torque name="middle_tip_torque" site="right_middle_tip"/>
+    <torque name="ring_tip_torque" site="right_ring_tip"/>
+    <torque name="pinky_tip_torque" site="right_pinky_tip"/>
+  </sensor>
+
+  <keyframe>
+    <!-- world position -->
+     <!-- wx wy wz wrx wry wrz -->
+    <!-- hand qpos -->
+     <!-- 0 = thumb, 1 = index, ..., 4 = pinky-->
+     <!-- 0_yaw, 0_prox, 0_int, 0_dist -->
+     <!-- 1_prox, 1_int -->
+     <!-- ... -->
+     <!-- 4_prox, 4_int -->
+    <!-- Box qpos, x y z qw qx qy qz -->
+    <key name="home"
+      qpos="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0 0
+      0 0
+      0 0
+      0 0
+      0 0
+      -0.026895 0 0.02
+      0 0 0 0
+      "
+      ctrl="
+      -0.11 -0.015 0.17 0 2.17 0
+      0 0 0.71 0.71 0.15 1.31
+      "
+    />
+  </keyframe>
+</mujoco>

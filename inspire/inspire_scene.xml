@@ -1,6 +1,5 @@
 <mujoco model="Inspire with Hanging Box">
   <include file="inspire_right.xml"/>
-  <!-- <include file="right_ur5_mount.xml"/> -->
 
   <!-- Add some fluid viscosity to prevent the hanging box from jiggling forever -->
   <option viscosity="0.1"/>
