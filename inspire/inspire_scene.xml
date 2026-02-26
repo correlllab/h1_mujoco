@@ -23,13 +23,22 @@
     <light pos="0 0 1"/>
     <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
     <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
-    <site size="0.002"  pos="0.07 0.029 0.2" name="anchor"/>
+    <!-- 40mm cube -->
+    <site size="0.002"  pos="0.06 0.023 0.220" name="anchor"/>
+    <body name="object" pos="0.06 0.023 0.170">
+      <freejoint/>
+      <geom name="box" type="box" size="0.02 0.02 0.02" rgba=".5 .7 .5 1" friction=".5" priority="1"/>
+      <site size="0.002" pos="0.02 0.02 0.02" name="hook"/>
+    </body>
+  </worldbody>
+
+    <!-- 30mm cube -->
+    <!-- <site size="0.002"  pos="0.07 0.029 0.2" name="anchor"/>
     <body name="object" pos="0.07 0.029 0.15">
       <freejoint/>
       <geom name="box" type="box" size="0.015 0.015 0.015" rgba=".5 .7 .5 1" friction=".5" priority="1"/>
       <site size="0.002" pos="0.015 0.015 0.015" name="hook"/>
-    </body>
-  </worldbody>
+    </body> -->
 
   <!-- explicit contact pairs for _mjw models -->
   <!-- <contact>
@@ -52,10 +61,6 @@
       <site site="anchor"/>
     </spatial>
   </tendon>
-
-  <keyframe>
-    <key name="home" ctrl="0.5 0.5 0.67 0.67 0.22 1.31"/>
-  </keyframe>
 
   <sensor>
     <force name="thumb_tip_force" site="right_thumb_tip"/>
