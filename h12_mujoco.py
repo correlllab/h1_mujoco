@@ -19,7 +19,7 @@ def sim_loop(fixed=False, force_link=None):
         mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_pelvis_fixed.xml')
     else:
         mujoco_env = MujocoEnv('unitree_robots/h1_2/scene.xml')
-        mujoco_env.init_elastic_band()
+        mujoco_env.init_elastic_band('torso_link')
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--fixed', action='store_true',
                         help='Use pelvis-fixed scene without elastic band')
     parser.add_argument('--force', type=str, default=None,
-                        help='Enable external force interface for specified link name (e.g., left_wrist_yaw_link)')
+                        help='Enable external force interface for specified link name')
     args = parser.parse_args()
 
     sim_loop(fixed=args.fixed, force_link=args.force)

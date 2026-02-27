@@ -10,7 +10,6 @@ class MujocoEnv:
 
         # initialize elastic band
         self.elastic_band = None
-        self.band_enabled = False
 
         # simulation pause toggle
         self.paused = False
@@ -24,24 +23,25 @@ class MujocoEnv:
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
 
-    def init_elastic_band(self, point=np.array([0, 0, 2.5]), length=0, stiffness=500, damping=100):
+    def init_elastic_band(self, link_name='torso_link',
+                          point=np.array([0, 0, 2.0]),
+                          length=0, stiffness=1e3, damping=1e3):
         # initialize member variables
         self.elastic_band = ElasticBand(point, length, stiffness, damping)
-        self.band_enabled = True
         # attach band to model
-        self.band_attached_body_id = self.model.body('torso_link').id
+        self.band_attached_body_id = self.model.body(link_name).id
 
         # print instructions
         print('Elastic band initialized!')
         self.elastic_band.print_instructions()
 
-    def init_external_force(self, link_name='left_wrist_yaw_link',
+    def init_external_force(self, link_name='torso_link',
                             magnitude=10.0, damping=10.0):
         '''
         Initialize external force interface for human interaction simulation.
 
         Args:
-            body_name: Name of the body to apply forces to (e.g., 'left_wrist_yaw_link')
+            body_name: Name of the body to apply forces to (e.g., 'torso_link')
             magnitude: Maximum force magnitude (N)
             damping: Damping coefficient for velocity-based force reduction
         '''
@@ -79,20 +79,16 @@ class MujocoEnv:
             state = 'paused' if self.paused else 'resumed'
             print(f'Simulation {state}')
 
-        # toggle elastic band
-        if key == glfw.KEY_SPACE and self.elastic_band is not None:
-            self.band_enabled = not self.band_enabled
-            print(f"Elastic band {'enabled' if self.band_enabled else 'disabled'}")
-        # handle input if elastic band is enabled
-        if self.band_enabled and self.elastic_band is not None:
+        # handle input for elastic band
+        if self.elastic_band is not None:
             self.elastic_band.key_callback(key)
         # handle input for end-effector force
         if self.external_force is not None:
             self.external_force.key_callback(key)
 
-    def eval_band(self):
+    def eval_elastic_band(self):
         '''Evaluate and apply elastic band force if enabled'''
-        if self.elastic_band is not None and self.band_enabled:
+        if self.elastic_band is not None and self.elastic_band.enabled:
             # get x and v of pelvis joint (joint on the hip)
             x = self.data.qpos[:3]
             v = self.data.qvel[:3]
@@ -100,6 +96,51 @@ class MujocoEnv:
             f = self.elastic_band.evaluate_force(x, v)
             # apply force to the band-attached link
             self.data.xfrc_applied[self.band_attached_body_id, :3] = f
+
+    def draw_elastic_band(self):
+        '''Draw elastic band and anchor marker in the viewer.'''
+        if self.viewer is None:
+            return
+
+        # reset per-frame geometry scene
+        scn = self.viewer.user_scn
+        scn.ngeom = 0
+
+        if self.elastic_band is not None and self.elastic_band.enabled:
+            anchor = self.elastic_band.point
+            body_pos = self.data.xpos[self.band_attached_body_id]
+            color = np.array([0.5, 0.6, 1.0, 0.8])
+
+            # draw anchor point marker.
+            if scn.ngeom < scn.maxgeom:
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom],
+                    mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.array([0.02, 0.0, 0.0]), # size (sphere radius in size[0])
+                    anchor,                     # initial position (anchor)
+                    np.eye(3).flatten(),        # orientation matrix (identity)
+                    color,                      # RGBA color
+                )
+                scn.ngeom += 1
+
+            # draw elastic band line from anchor to attached body.
+            if scn.ngeom < scn.maxgeom:
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom],
+                    mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    np.zeros(3),         # size placeholder
+                    np.zeros(3),         # position placeholder
+                    np.eye(3).flatten(), # orientation matrix (identity)
+                    color,               # RGBA color
+                )
+                mujoco.mjv_connector(
+                    scn.geoms[scn.ngeom],          # geom to modify
+                    mujoco.mjtGeom.mjGEOM_CAPSULE, # connector type
+                    0.01,                          # capsule radius (band thickness)
+                    anchor,                        # line start point
+                    body_pos,                      # line end point
+                )
+                scn.ngeom += 1
 
     def eval_external_force(self):
         '''Apply external forces and torques for human interaction simulation'''
@@ -127,11 +168,13 @@ class MujocoEnv:
 
     def sim_step(self):
         # evaluate elastic band
-        self.eval_band()
+        self.eval_elastic_band()
         # evaluate external forces
         self.eval_external_force()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
+        # draw elastic band
+        self.draw_elastic_band()
         # sync user input
         self.viewer.sync()
 
@@ -218,6 +261,7 @@ class ElasticBand:
         self.length = length
         self.stiffness = stiffness
         self.damping = damping
+        self.enabled = True
 
     def evaluate_force(self, x, v):
         # displacement
@@ -233,6 +277,15 @@ class ElasticBand:
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
+
+        if key == glfw.KEY_SPACE:
+            self.enabled = not self.enabled
+            print(f"Elastic band {'enabled' if self.enabled else 'disabled'}")
+            return
+
+        if not self.enabled:
+            return
+
         if key == glfw.KEY_LEFT:
             self.point[0] -= 0.1
         elif key == glfw.KEY_RIGHT:
@@ -248,6 +301,7 @@ class ElasticBand:
 
     def print_instructions(self):
         print('Elastic Band Controls:')
+        print('  SPACE - Toggle elastic band on/off')
         print('  Arrow Keys - Move band anchor point (←→ for X, ↑↓ for Y)')
         print('  , / . - Decrease/increase band rest length')
 
