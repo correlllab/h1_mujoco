@@ -3,7 +3,7 @@
   <statistic meansize="0.112107" extent="1.95557" center="0.0256948 1.86841e-05 -0.178443"/>
 
   <default>
-      <joint damping="10.0" armature="0.0"/>
+    <joint damping="10.0" armature="0.1"  frictionloss="0.2" />
   </default>
 
   <asset>
