@@ -104,8 +104,9 @@
   </asset>
 
   <worldbody>
+    <site name="world" pos="0 0 0" size="0.001" group="4"/>
     <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2"/>
-    <body name="base" quat="0 0 0 -1" childclass="ur5e">
+    <body name="base" gravcomp="1" quat="0 0 0 -1" childclass="ur5e">
       <inertial mass="4.0" pos="0 0 0" diaginertia="0.00443333156 0.00443333156 0.0072"/>
       <geom mesh="base_0" material="black" class="ur5e_visual"/>
       <geom mesh="base_1" material="jointgray" class="ur5e_visual"/>
@@ -177,39 +178,39 @@
     </body>
   </worldbody>
 
-  <!-- Equality constraints for magpie 4-bar loop closure -->
+  <!-- Equality constraints for 4-bar loop closure — synced with inspire_right.xml -->
   <equality>
-    <joint joint1="pinky_proximal_joint" joint2="pinky_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="ring_proximal_joint" joint2="ring_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="middle_proximal_joint" joint2="middle_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="index_proximal_joint" joint2="index_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="thumb_proximal_pitch_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="thumb_distal_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="pinky_intermediate_joint"  joint2="pinky_proximal_joint"  polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="ring_intermediate_joint"   joint2="ring_proximal_joint"   polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="middle_intermediate_joint" joint2="middle_proximal_joint" polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="index_intermediate_joint"  joint2="index_proximal_joint"  polycoef="-0.05 1.1169 0 0 0"/>
+    <joint joint1="thumb_intermediate_joint"  joint2="thumb_proximal_pitch_joint" polycoef="0.15 1.33 0 0"/>
+    <joint joint1="thumb_distal_joint"        joint2="thumb_proximal_pitch_joint" polycoef="0.15 0.66 0 0 0"/>
   </equality>
 
   <actuator>
       <!-- UR5E arm actuators -->
-    <!-- <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
+    <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
     <general class="size3" name="shoulder_lift" joint="shoulder_lift_joint"/>
     <general class="size3_limited" name="elbow" joint="elbow_joint"/>
     <general class="size1" name="wrist_1" joint="wrist_1_joint"/>
     <general class="size1" name="wrist_2" joint="wrist_2_joint"/>
-    <general class="size1" name="wrist_3" joint="wrist_3_joint"/> -->
+    <general class="size1" name="wrist_3" joint="wrist_3_joint"/>
 
     <!-- End-effector 6D Cartesian Space Control -->
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="1 0 0 0 0 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 1 0 0 0 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 0 1 0 0 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 1 0 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 1 0"/>
-    <general site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 0 1"/>
+    <!-- <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="1 0 0 0 0 0"/>
+    <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 1 0 0 0 0"/>
+    <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="10" gear="0 0 1 0 0 0"/>
+    <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 1 0 0"/>
+    <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 1 0"/>
+    <general class="inspire" site="eeff" refsite="world" ctrlrange="-1 1" ctrllimited="true" gainprm="1" gear="0 0 0 0 0 1"/> -->
 
-    <!-- Inspire hand actuators -->
+    <!-- Inspire hand actuators — ctrlranges synced with inspire_right.xml -->
     <position class="inspire" name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.57"/>
     <position class="inspire" name="ring" joint="ring_proximal_joint" ctrlrange="0 1.57"/>
-    <position class="inspire" name="middle" joint="middle_proximal_joint" ctrlrange="0 1.57"/>
-    <position class="inspire" name="index" joint="index_proximal_joint" ctrlrange="0 1.57"/>
-    <position class="inspire" name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0 0.6"/>
+    <position class="inspire" name="middle" joint="middle_proximal_joint" ctrlrange="0 1.50"/>
+    <position class="inspire" name="index" joint="index_proximal_joint" ctrlrange="0 1.50"/>
+    <position class="inspire" name="thumb_proximal" joint="thumb_proximal_pitch_joint" ctrlrange="0.1 0.57"/>
     <position class="inspire" name="thumb_yaw" joint="thumb_proximal_yaw_joint" ctrlrange="0 1.308"/>
   </actuator>
 
