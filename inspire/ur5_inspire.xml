@@ -49,6 +49,12 @@
   </default>
 
   <asset>
+    <!-- Skybox -->
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+
     <!-- UR5E materials -->
     <material class="ur5e" name="black" rgba="0.033 0.033 0.033 1"/>
     <material class="ur5e" name="jointgray" rgba="0.278 0.278 0.278 1"/>
@@ -104,6 +110,8 @@
   </asset>
 
   <worldbody>
+    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
+
     <site name="world" pos="0 0 0" size="0.001" group="4"/>
     <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2"/>
     <body name="base" gravcomp="1" quat="0 0 0 -1" childclass="ur5e">
@@ -165,7 +173,8 @@
                   <!-- Inspire hand attached to UR5E wrist -->
                   <!-- Attachment frame: UR5E Y-axis out, Magpie Z-axis out -->
                   <!-- quat rotates gripper so its Z aligns with UR5E +Y (-90° about X) -->
-                  <body name="gripper_attachment" gravcomp="1" pos="0 0.156 0" quat="-0.707108 0.707108 0 0">
+                  <!-- <body name="gripper_attachment" gravcomp="1" pos="0 0.156 0" quat="-0.707108 0.707108 0 0"> -->
+                  <body name="gripper_attachment" gravcomp="1" pos="0 0.156 0" quat="-0.5 0.5 -0.5 -0.5 ">
                     <include file="inspire_right_ur5.xml"/>
                   </body>
 
