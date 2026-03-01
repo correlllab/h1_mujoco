@@ -10,7 +10,6 @@ class MujocoEnv:
 
         # initialize elastic band
         self.elastic_band = None
-        self.band_enabled = False
 
         # simulation pause toggle
         self.paused = False
@@ -24,56 +23,37 @@ class MujocoEnv:
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
 
-    def init_elastic_band(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
+    def init_elastic_band(self, link_name='torso_link',
+                          point=np.array([0, 0, 2.0]),
+                          length=0, stiffness=1e3, damping=1e3):
         # initialize member variables
         self.elastic_band = ElasticBand(point, length, stiffness, damping)
-        self.band_enabled = True
         # attach band to model
-        self.band_attached_body_id = self.model.body('torso_link').id
+        self.band_attached_body_id = self.model.body(link_name).id
 
-    def init_external_force(self, body_name='left_wrist_yaw_link',
-                                magnitude=10.0, damping=10.0):
+        # print instructions
+        print('Elastic band initialized!')
+        self.elastic_band.print_instructions()
+
+    def init_external_force(self, link_name='torso_link',
+                            magnitude=10.0):
         '''
         Initialize external force interface for human interaction simulation.
 
         Args:
-            body_name: Name of the body to apply forces to (e.g., 'left_wrist_yaw_link', 'right_wrist_yaw_link')
+            body_name: Name of the body to apply forces to (e.g., 'torso_link')
             magnitude: Maximum force magnitude (N)
-            damping: Damping coefficient for velocity-based force reduction
         '''
         try:
-            self.external_force = EndEffectorForce(magnitude, damping)
-            self.force_target_body_id = self.model.body(body_name).id
+            self.external_force = EndEffectorForce(magnitude)
+            self.force_target_body_id = self.model.body(link_name).id
             self.force_enabled = True
-            print(f'External force interface initialized for body: {body_name}')
-            print('Controls:')
-            print('  F - Toggle force on/off')
-            print('  Arrow Keys - Apply horizontal forces (↑↓←→)')
-            print('  Page Up/Down - Apply vertical forces (up/down)')
-            print('  +/- - Increase/decrease force magnitude')
-            print('  R - Reset forces to zero')
-            print('  Numpad 4/6 - Roll torque')
-            print('  Numpad 8/2 - Pitch torque')
-            print('  Numpad 7/9 - Yaw torque')
-            print('  Numpad 5 - Reset torque')
+            print(f'External force interface initialized for body: {link_name}')
+            self.external_force.print_instructions()
         except Exception as e:
-            print(f'Error initializing external force for body {body_name}: {e}')
+            print(f'Error initializing external force for body {link_name}: {e}')
             available_bodies = [self.model.body(i).name for i in range(self.model.nbody)]
             print(f'Available wrist bodies: {available_bodies}')
-
-    def set_external_force(self, force_vector, torque_vector=None):
-        '''
-        Directly set the external force and torque.
-
-        Args:
-            force_vector: 3D force vector in world frame (N)
-            torque_vector: 3D torque vector in world frame (Nm), optional
-        '''
-        if self.external_force is not None:
-            self.external_force.set_force(force_vector)
-            if torque_vector is not None:
-                self.external_force.torque = np.array(torque_vector)
-            self.external_force.active = True
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
@@ -84,26 +64,69 @@ class MujocoEnv:
             state = 'paused' if self.paused else 'resumed'
             print(f'Simulation {state}')
 
-        # toggle elastic band
-        if key == glfw.KEY_SPACE and self.elastic_band is not None:
-            self.band_enabled = not self.band_enabled
-            print(f"Elastic band {'enabled' if self.band_enabled else 'disabled'}")
-        # handle input if elastic band is enabled
-        if self.band_enabled and self.elastic_band is not None:
+        # handle input for elastic band
+        if self.elastic_band is not None:
             self.elastic_band.key_callback(key)
         # handle input for end-effector force
         if self.external_force is not None:
             self.external_force.key_callback(key)
 
-    def eval_band(self):
-        if self.elastic_band is not None and self.band_enabled:
+    def eval_elastic_band(self):
+        '''Evaluate and apply elastic band force if enabled'''
+        if self.elastic_band is not None and self.elastic_band.enabled:
             # get x and v of pelvis joint (joint on the hip)
             x = self.data.qpos[:3]
             v = self.data.qvel[:3]
             # evaluate elastic band force
-            f = self.elastic_band.evalute_force(x, v)
+            f = self.elastic_band.evaluate_force(x, v)
             # apply force to the band-attached link
-            self.data.xfrc_applied[self.band_attached_body_id, :3] = f
+            self.data.xfrc_applied[self.band_attached_body_id, :3] += f
+
+    def reset_geom_buffer(self):
+        scn = self.viewer.user_scn
+        scn.ngeom = 0
+
+    def draw_elastic_band(self):
+        '''Draw elastic band and anchor marker in the viewer.'''
+        if self.viewer is None:
+            return
+
+        if self.elastic_band is not None and self.elastic_band.enabled:
+            scn = self.viewer.user_scn
+            anchor = self.elastic_band.point
+            body_pos = self.data.xpos[self.band_attached_body_id]
+            color = np.array([0.5, 0.6, 1.0, 0.8])
+
+            # draw anchor point marker.
+            if scn.ngeom < scn.maxgeom:
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom],
+                    mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.array([0.02, 0.0, 0.0]), # size (sphere radius in size[0])
+                    anchor,                     # initial position (anchor)
+                    np.eye(3).flatten(),        # orientation matrix (identity)
+                    color,                      # RGBA color
+                )
+                scn.ngeom += 1
+
+            # draw elastic band line from anchor to attached body.
+            if scn.ngeom < scn.maxgeom:
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom],
+                    mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    np.zeros(3),         # size placeholder
+                    np.zeros(3),         # position placeholder
+                    np.eye(3).flatten(), # orientation matrix (identity)
+                    color,               # RGBA color
+                )
+                mujoco.mjv_connector(
+                    scn.geoms[scn.ngeom],          # geom to modify
+                    mujoco.mjtGeom.mjGEOM_CAPSULE, # connector type
+                    0.01,                          # capsule radius (band thickness)
+                    anchor,                        # line start point
+                    body_pos,                      # line end point
+                )
+                scn.ngeom += 1
 
     def eval_external_force(self):
         '''Apply external forces and torques for human interaction simulation'''
@@ -111,15 +134,39 @@ class MujocoEnv:
             self.force_target_body_id is not None and
             self.external_force.active):
 
-            # get current velocity of the target body for damping
-            body_vel = self.data.cvel[self.force_target_body_id, :3]  # Linear velocity
-
-            # apply damping to the force
-            damped_force = self.external_force.apply_damping(body_vel)
-
             # apply force and torque to the target body
-            self.data.xfrc_applied[self.force_target_body_id, :3] = damped_force
-            self.data.xfrc_applied[self.force_target_body_id, 3:] = self.external_force.torque
+            self.data.xfrc_applied[self.force_target_body_id, :3] += self.external_force.force
+            self.data.xfrc_applied[self.force_target_body_id, 3:] += self.external_force.torque
+
+    def draw_external_force(self):
+        '''Draw external force vector as an arrow at the acting body'''
+        if self.viewer is None:
+            return
+
+        if (self.external_force is not None and
+            self.force_target_body_id is not None and
+            self.external_force.active):
+            scn = self.viewer.user_scn
+            origin = self.data.xpos[self.force_target_body_id]
+            end = origin + (self.external_force.force + 1e-3) * 0.1
+            color = np.array([1.0, 0.2, 0.2, 0.8])
+
+            mujoco.mjv_initGeom(
+                scn.geoms[scn.ngeom],
+                mujoco.mjtGeom.mjGEOM_ARROW,
+                np.zeros(3),         # size placeholder
+                np.zeros(3),         # position placeholder
+                np.eye(3).flatten(), # orientation matrix (identity)
+                color,               # RGBA color
+            )
+            mujoco.mjv_connector(
+                scn.geoms[scn.ngeom],        # geom to modify
+                mujoco.mjtGeom.mjGEOM_ARROW, # connector type
+                0.01,                        # arrow radius
+                origin,                      # arrow start point
+                end,                         # arrow end point
+            )
+            scn.ngeom += 1
 
     def launch_viewer(self):
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
@@ -131,11 +178,17 @@ class MujocoEnv:
 
     def sim_step(self):
         # evaluate elastic band
-        self.eval_band()
+        self.eval_elastic_band()
         # evaluate external forces
         self.eval_external_force()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
+        # reset custom geometry buffer for visualization
+        self.reset_geom_buffer()
+        # draw elastic band
+        self.draw_elastic_band()
+        # draw external force
+        self.draw_external_force()
         # sync user input
         self.viewer.sync()
 
@@ -222,8 +275,9 @@ class ElasticBand:
         self.length = length
         self.stiffness = stiffness
         self.damping = damping
+        self.enabled = True
 
-    def evalute_force(self, x, v):
+    def evaluate_force(self, x, v):
         # displacement
         displacement = np.linalg.norm(x - self.point)
         # direction
@@ -237,6 +291,15 @@ class ElasticBand:
 
     def key_callback(self, key):
         glfw = mujoco.glfw.glfw
+
+        if key == glfw.KEY_SPACE:
+            self.enabled = not self.enabled
+            print(f"Elastic band {'enabled' if self.enabled else 'disabled'}")
+            return
+
+        if not self.enabled:
+            return
+
         if key == glfw.KEY_LEFT:
             self.point[0] -= 0.1
         elif key == glfw.KEY_RIGHT:
@@ -250,40 +313,36 @@ class ElasticBand:
         elif key == glfw.KEY_PERIOD:
             self.length += 0.1
 
+    def print_instructions(self):
+        print('Elastic Band Controls:')
+        print('  SPACE - Toggle elastic band on/off')
+        print('  Arrow Keys - Move band anchor point (←→ for X, ↑↓ for Y)')
+        print('  , / . - Decrease/increase band rest length')
+
 class EndEffectorForce:
-    def __init__(self, magnitude=10.0, damping=10.0):
+    def __init__(self, magnitude=10.0):
         '''
-        Initialize end-effector force controller for simulating human interaction
+        Initialize force controller for simulating external disturbance
 
         Args:
-            magnitude: Maximum force magnitude (N)
-            damping: Damping coefficient for velocity-based force reduction
+            magnitude: Force magnitude for keyboard control (N)
         '''
         self.magnitude = magnitude
-        self.damping = damping
-        self.force = np.zeros(3)  # Current applied force in world frame
-        self.torque = np.zeros(3)  # Current applied torque in world frame
+        self.direction = np.array([1.0, 0.0, 0.0])
+        self.torque = np.zeros(3)
         self.active = False
+        self.step = 5.0
 
-        # force direction control
-        self.force_direction = np.array([1.0, 0.0, 0.0])  # Current force direction
+    @property
+    def force(self):
+        return self.magnitude * self.direction
 
     def set_force(self, force_vector):
-        '''Set the force vector directly'''
-        self.force = np.array(force_vector)
-
-    def set_force_magnitude_direction(self, magnitude, direction):
-        '''Set force by magnitude and direction'''
-        direction_normalized = np.array(direction) / np.linalg.norm(direction)
-        self.force = magnitude * direction_normalized
-
-    def apply_damping(self, velocity):
-        '''Apply velocity-based damping to the force'''
-        if np.linalg.norm(velocity) > 0:
-            velocity_normalized = velocity / np.linalg.norm(velocity)
-            damping_force = -self.damping * np.dot(velocity, velocity_normalized) * velocity_normalized
-            return self.force + damping_force
-        return self.force
+        force = np.array(force_vector, dtype=np.float64)
+        magnitude = np.linalg.norm(force)
+        self.magnitude = magnitude
+        if magnitude > 0:
+            self.direction = force / magnitude
 
     def key_callback(self, key):
         '''Handle keyboard input for force control'''
@@ -294,7 +353,7 @@ class EndEffectorForce:
             self.active = not self.active
             print(f'External force {"activated" if self.active else "deactivated"}')
             if not self.active:
-                self.force = np.zeros(3)
+                self.magnitude = 0.0
                 self.torque = np.zeros(3)
 
         if not self.active:
@@ -302,33 +361,33 @@ class EndEffectorForce:
 
         # force magnitude control
         if key == glfw.KEY_KP_ADD or key == glfw.KEY_EQUAL:  # + key
-            self.magnitude = min(self.magnitude + 5.0, 200.0)
+            self.magnitude += self.step
             print(f'Force magnitude: {self.magnitude:.1f} N')
         elif key == glfw.KEY_KP_SUBTRACT or key == glfw.KEY_MINUS:  # - key
-            self.magnitude = max(self.magnitude - 5.0, 0.0)
+            self.magnitude = max(self.magnitude - self.step, 0.0)
             print(f'Force magnitude: {self.magnitude:.1f} N')
 
         # directional force control (Arrow keys + Page Up/Down for 3D)
         elif key == glfw.KEY_UP:  # Forward (+X)
-            self.force = np.array([self.magnitude, 0, 0])
+            self.direction = np.array([1.0, 0.0, 0.0])
             print(f'Applying forward force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_DOWN:  # Backward (-X)
-            self.force = np.array([-self.magnitude, 0, 0])
+            self.direction = np.array([-1.0, 0.0, 0.0])
             print(f'Applying backward force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_LEFT:  # Left (-Y)
-            self.force = np.array([0, -self.magnitude, 0])
+            self.direction = np.array([0.0, -1.0, 0.0])
             print(f'Applying left force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_RIGHT:  # Right (+Y)
-            self.force = np.array([0, self.magnitude, 0])
+            self.direction = np.array([0.0, 1.0, 0.0])
             print(f'Applying right force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_PAGE_UP:  # Up (+Z)
-            self.force = np.array([0, 0, self.magnitude])
+            self.direction = np.array([0.0, 0.0, 1.0])
             print(f'Applying upward force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_PAGE_DOWN:  # Down (-Z)
-            self.force = np.array([0, 0, -self.magnitude])
+            self.direction = np.array([0.0, 0.0, -1.0])
             print(f'Applying downward force: {self.magnitude:.1f} N')
         elif key == glfw.KEY_R:  # Reset force
-            self.force = np.zeros(3)
+            self.magnitude = 0.0
             self.torque = np.zeros(3)
             print('Force reset to zero')
 
@@ -354,3 +413,15 @@ class EndEffectorForce:
         elif key == glfw.KEY_KP_5:  # Reset torque
             self.torque = np.zeros(3)
             print('Torque reset to zero')
+
+    def print_instructions(self):
+        print('External Force Controls:')
+        print('  F - Toggle force application on/off')
+        print('  + / - - Increase/decrease force magnitude')
+        print('  Arrow Keys - Apply directional forces (←→ for Y, ↑↓ for X)')
+        print('  Page Up/Down - Apply upward/downward force (Z axis)')
+        print('  R - Reset force to zero')
+        print('  Numpad 4/6 - Apply roll torque')
+        print('  Numpad 8/2 - Apply pitch torque')
+        print('  Numpad 7/9 - Apply yaw torque')
+        print('  Numpad 5 - Reset torque to zero')

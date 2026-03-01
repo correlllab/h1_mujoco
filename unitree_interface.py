@@ -79,6 +79,8 @@ class SimInterface:
 
     def publish_low_state(self):
         if self.data is not None:
+            # write tick
+            self.low_state.tick = int(self.data.time / self.dt)
             # write motor state
             for i in range(self.num_motor):
                 self.low_state.motor_state[i].q = self.data.sensordata[i]
