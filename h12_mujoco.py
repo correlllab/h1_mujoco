@@ -25,7 +25,7 @@ def sim_loop(fixed=False, force_link=None):
 
     # initialize external force interface if link name is provided
     if force_link is not None:
-        mujoco_env.init_external_force(force_link, magnitude=5.0, damping=10.0)
+        mujoco_env.init_external_force(force_link, magnitude=5.0)
 
     # # define body name & id for wrench calculation (optional)
     # body_name = 'left_wrist_yaw_link'
