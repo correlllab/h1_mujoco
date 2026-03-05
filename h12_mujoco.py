@@ -7,7 +7,7 @@ from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
 from unitree_interface import SimInterface
 
-def sim_loop(fixed=False, force_link=None):
+def sim_loop(fixed=False, force_links=None):
     '''
     Simulating the robot in mujoco.
     Publishing low state and high state.
@@ -23,9 +23,9 @@ def sim_loop(fixed=False, force_link=None):
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
-    # initialize external force interface if link name is provided
-    if force_link is not None:
-        mujoco_env.init_external_force(force_link, magnitude=5.0)
+    # initialize external force interface if link names are provided
+    if force_links:
+        mujoco_env.init_external_force(force_links, magnitude=5.0)
 
     # # define body name & id for wrench calculation (optional)
     # body_name = 'left_wrist_yaw_link'
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run H1-2 Mujoco simulation')
     parser.add_argument('--fixed', action='store_true',
                         help='Use pelvis-fixed scene without elastic band')
-    parser.add_argument('--force', type=str, default=None,
-                        help='Enable external force interface for specified link name')
+    parser.add_argument('--force', nargs='+', default=None,
+                        help='Enable external force interface for specified link names')
     args = parser.parse_args()
 
-    sim_loop(fixed=args.fixed, force_link=args.force)
+    sim_loop(fixed=args.fixed, force_links=args.force)
