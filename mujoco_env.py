@@ -16,7 +16,7 @@ class MujocoEnv:
 
         # initialize end-effector force interface
         self.external_force = None
-        self.force_target_body_id = None
+        self.force_target_body_ids = []
         self.force_enabled = False
 
         # set simulation parameters
@@ -35,23 +35,25 @@ class MujocoEnv:
         print('Elastic band initialized!')
         self.elastic_band.print_instructions()
 
-    def init_external_force(self, link_name='torso_link',
+    def init_external_force(self, link_names='torso_link',
                             magnitude=10.0):
         '''
         Initialize external force interface for human interaction simulation.
 
         Args:
-            body_name: Name of the body to apply forces to (e.g., 'torso_link')
+            link_names: Names of bodies to apply forces to
             magnitude: Maximum force magnitude (N)
         '''
         try:
             self.external_force = EndEffectorForce(magnitude)
-            self.force_target_body_id = self.model.body(link_name).id
+            if isinstance(link_names, str):
+                link_names = [link_names]
+            self.force_target_body_ids = [self.model.body(name).id for name in link_names]
             self.force_enabled = True
-            print(f'External force interface initialized for body: {link_name}')
+            print(f'External force interface initialized for bodies: {link_names}')
             self.external_force.print_instructions()
         except Exception as e:
-            print(f'Error initializing external force for body {link_name}: {e}')
+            print(f'Error initializing external force for bodies {link_names}: {e}')
             available_bodies = [self.model.body(i).name for i in range(self.model.nbody)]
             print(f'Available wrist bodies: {available_bodies}')
 
@@ -131,12 +133,13 @@ class MujocoEnv:
     def eval_external_force(self):
         '''Apply external forces and torques for human interaction simulation'''
         if (self.external_force is not None and
-            self.force_target_body_id is not None and
+            self.force_target_body_ids and
             self.external_force.active):
 
-            # apply force and torque to the target body
-            self.data.xfrc_applied[self.force_target_body_id, :3] += self.external_force.force
-            self.data.xfrc_applied[self.force_target_body_id, 3:] += self.external_force.torque
+            # apply force and torque to target bodies
+            for body_id in self.force_target_body_ids:
+                self.data.xfrc_applied[body_id, :3] += self.external_force.force
+                self.data.xfrc_applied[body_id, 3:] += self.external_force.torque
 
     def draw_external_force(self):
         '''Draw external force vector as an arrow at the acting body'''
@@ -144,29 +147,34 @@ class MujocoEnv:
             return
 
         if (self.external_force is not None and
-            self.force_target_body_id is not None and
+            self.force_target_body_ids and
             self.external_force.active):
             scn = self.viewer.user_scn
-            origin = self.data.xpos[self.force_target_body_id]
-            end = origin + (self.external_force.force + 1e-3) * 0.1
             color = np.array([1.0, 0.2, 0.2, 0.8])
 
-            mujoco.mjv_initGeom(
-                scn.geoms[scn.ngeom],
-                mujoco.mjtGeom.mjGEOM_ARROW,
-                np.zeros(3),         # size placeholder
-                np.zeros(3),         # position placeholder
-                np.eye(3).flatten(), # orientation matrix (identity)
-                color,               # RGBA color
-            )
-            mujoco.mjv_connector(
-                scn.geoms[scn.ngeom],        # geom to modify
-                mujoco.mjtGeom.mjGEOM_ARROW, # connector type
-                0.01,                        # arrow radius
-                origin,                      # arrow start point
-                end,                         # arrow end point
-            )
-            scn.ngeom += 1
+            # draw force arrow for each target body
+            for body_id in self.force_target_body_ids:
+                if scn.ngeom >= scn.maxgeom:
+                    break
+                origin = self.data.xpos[body_id]
+                end = origin + (self.external_force.force + 1e-3) * 0.1
+
+                mujoco.mjv_initGeom(
+                    scn.geoms[scn.ngeom],
+                    mujoco.mjtGeom.mjGEOM_ARROW,
+                    np.zeros(3),         # size placeholder
+                    np.zeros(3),         # position placeholder
+                    np.eye(3).flatten(), # orientation matrix (identity)
+                    color,               # RGBA color
+                )
+                mujoco.mjv_connector(
+                    scn.geoms[scn.ngeom],        # geom to modify
+                    mujoco.mjtGeom.mjGEOM_ARROW, # connector type
+                    0.01,                        # arrow radius
+                    origin,                      # arrow start point
+                    end,                         # arrow end point
+                )
+                scn.ngeom += 1
 
     def launch_viewer(self):
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
@@ -352,6 +360,9 @@ class EndEffectorForce:
         if key == glfw.KEY_F:
             self.active = not self.active
             print(f'External force {"activated" if self.active else "deactivated"}')
+            # preset force direction and magnitude when activated
+            # self.magnitude = 25.0
+            # self.direction = np.array([0.0, 0.0, -1.0])
             if not self.active:
                 self.magnitude = 0.0
                 self.torque = np.zeros(3)
