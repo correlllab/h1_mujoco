@@ -110,10 +110,10 @@
   </asset>
 
   <worldbody>
-    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="groundplane"/>
+    <geom name="floor" pos="0 0 0.070" size="0 0 0.05" type="plane" material="groundplane"/>
 
     <site name="world" pos="0 0 0" size="0.001" group="4"/>
-    <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2"/>
+    <light name="spotlight" mode="targetbodycom" target="wrist_3_link" pos="0 -1 2" ambient="0.5 0.5 0.5" diffuse="0.4 0.4 0.4" specular="0.4 0.4 0.4"/>
     <body name="base" gravcomp="1" quat="0 0 0 -1" childclass="ur5e">
       <inertial mass="4.0" pos="0 0 0" diaginertia="0.00443333156 0.00443333156 0.0072"/>
       <geom mesh="base_0" material="black" class="ur5e_visual"/>
