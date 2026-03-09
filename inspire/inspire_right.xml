@@ -222,7 +222,9 @@
     <key name="40mm" ctrl="0.5 0.5 0.5 0.5 0.6 1.31"/>
     <key name="40mm_real" ctrl="0.5 0.5 0.495 0.424 0.222 1.31"/>
     <key name="30mm" ctrl="0.5 0.5 0.67 0.67 0.22 1.31"/>
-    <key name="thumn" ctrl="0.0 0.0 0.0 0.0 0.6 1.31"/>
+    <key name="thumb" ctrl="0.0 0.0 0.0 0.0 0.6 1.31"/>
+    <key name="naive0" ctrl="0.0 0.0 0.0 0.0 0.3 1.16"/>
+    <key name="naive1" ctrl="1.5 1.5 1.5 1.3 0.6 1.16"/>
   </keyframe>
 
 </mujoco>
