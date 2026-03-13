@@ -3,6 +3,7 @@
 
   <default>
     <joint damping="10.0" armature="0.1"  frictionloss="0.2" />
+    <geom friction="1.0 0.001 0.001"/>
   </default>
 
   <asset>
