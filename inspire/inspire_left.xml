@@ -194,13 +194,17 @@
     <exclude body1="thumb_proximal_base" body2="index_proximal"/>
   </contact>
 
+  <!-- 4-bar coupling constraints — synced with inspire_right.xml polycoefs.
+       intermediate first (same convention as right hand).
+       Axes are inverted (axis="0 0 -1") on all left-hand joints so positive ctrl
+       still maps to the same physical flexion direction, keeping signs identical. -->
   <equality>
-    <joint joint1="pinky_proximal_joint" joint2="pinky_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="ring_proximal_joint" joint2="ring_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="middle_proximal_joint" joint2="middle_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="index_proximal_joint" joint2="index_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="thumb_proximal_pitch_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
-    <joint joint1="thumb_distal_joint" joint2="thumb_intermediate_joint" polycoef="0 1 0 0 0"/>
+    <joint joint1="pinky_intermediate_joint"  joint2="pinky_proximal_joint"  polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="ring_intermediate_joint"   joint2="ring_proximal_joint"   polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="middle_intermediate_joint" joint2="middle_proximal_joint" polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="index_intermediate_joint"  joint2="index_proximal_joint"  polycoef="-0.05 1.1169 0 0 0"/>
+    <joint joint1="thumb_intermediate_joint"  joint2="thumb_proximal_pitch_joint" polycoef="0.15 1.33 0 0"/>
+    <joint joint1="thumb_distal_joint"        joint2="thumb_proximal_pitch_joint" polycoef="0.15 0.66 0 0 0"/>
   </equality>
 
   <actuator>
