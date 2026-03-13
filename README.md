@@ -4,14 +4,30 @@ MuJoCo simulation for the H1_2 robot.
 
 ## Installation
 
-- Clone the Unitree Python SDK from this [repo](https://github.com/unitreerobotics/unitree_sdk2_python).
-- Install python dependencies from `environment.yml` using [`conda`](https://github.com/conda-forge/miniforge):
+- This repo depends on [Unitree Python SDK](https://github.com/unitreerobotics/unitree_sdk2_python) to communicate with the robot.
+- Download Unitree SDK under `submodules/unitree_sdk2_python` by initializing git submodules:
+
+  ```bash
+  git submodule update --init --recursive
+  ```
+
+### `uv` Installation
+
+- Easiest way to run scripts in this repo is to use [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
+- Commands:
 
     ```bash
-    conda env create -f environment.yml
-    conda activate sim_env
-    cd PATH_TO_UNITREE_SDK
-    pip install -e .
+    uv sync # install dependencies to this repo including unitree sdk
+    uv run PATH_TO_SCRIPT
+    ```
+
+### `pip` Installation
+
+- `requirements.txt` lists dependencies that can be installed by `pip`.
+- Commands:
+
+    ```bash
+    pip install -r requirements.txt # install dependencies for this repo
     ```
 
 ## Files

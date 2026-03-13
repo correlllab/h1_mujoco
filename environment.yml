@@ -7,8 +7,6 @@ dependencies:
   - tqdm
   - numpy
   - scipy
-  - pandas
-  - argparse
   - matplotlib
   # graphic libs
   - pyvista
