@@ -17,7 +17,7 @@ MuJoCo simulation for the H1_2 robot.
 - Commands:
 
     ```bash
-    uv sync # install dependencies to this repo including unitree sdk
+    uv sync # install dependencies for this repo including unitree sdk
     uv run PATH_TO_SCRIPT
     ```
 
@@ -27,7 +27,7 @@ MuJoCo simulation for the H1_2 robot.
 - Commands:
 
     ```bash
-    pip install -r requirements.txt # install dependencies for this repo
+    pip install -r requirements.txt # install dependencies for this repo including unitree sdk
     ```
 
 ## Files
