@@ -1,11 +1,14 @@
-<mujoco model="H1-2 + Inspire RH (position actuators, MPC)">
+<mujoco model="H1-2 + Inspire Bimanual (position actuators)">
   <!--
-    H1-2 humanoid with right Inspire hand — position-actuator variant.
-    Intended for MPC / trajectory optimisation (not for h12_ros2_controller).
-    For sim2real / grasp_viz use h1_2_inspire.xml (motor actuators).
+    H1-2 humanoid with BOTH Inspire hands — bimanual position-actuator variant.
+    Used by grasp_viz --h12 --bimanual for dual-arm grasp planning.
 
-    Attachment transform (right_wrist_yaw_link → hand base):
-      pos="0.054 0 0"  quat="0.5 0.5 0.5 0.5"  (derived from h1_2_pos_hands.xml geometry)
+    Right hand attachment (right_wrist_yaw_link → hand base):
+      pos="0.054 0 0"  quat="0.5 0.5 0.5 0.5"
+    Left hand attachment (left_wrist_yaw_link → hand base):
+      pos="0.054 0 0"  quat="0.5 -0.5 0.5 -0.5"
+      R: [x,y,z] in hand → [z,-x,-y]+[0.054,0,0] in wrist
+      (verified: thumb_base [0.017,-0.020,0.069] → [0.123,-0.017,0.020] matches h1_2_pos_hands.xml)
   -->
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
 
@@ -117,6 +120,25 @@
     <mesh name="right_index_intermediate_visual" file="visual/right_index_intermediate_visual.stl"/>
     <mesh name="right_middle_intermediate_visual" file="visual/right_middle_intermediate_visual.stl"/>
     <mesh name="right_pinky_intermediate_visual" file="visual/right_pinky_intermediate_visual.stl"/>
+
+    <!-- Inspire LEFT hand meshes -->
+    <mesh name="left_base_link_visual"           file="visual/L_hand_base_link.STL"/>
+    <mesh name="left_thumb_proximal_base_visual" file="visual/left_thumb_proximal_base_visual.stl"/>
+    <mesh name="left_thumb_proximal_visual"      file="visual/left_thumb_proximal_visual.stl"/>
+    <mesh name="left_thumb_intermediate_visual"  file="visual/left_thumb_intermediate_visual.stl"/>
+    <mesh name="left_thumb_distal_visual"        file="visual/left_thumb_distal_visual.stl"/>
+    <mesh name="left_index_proximal_visual"      file="visual/left_index_proximal_visual.stl"/>
+    <mesh name="left_index_intermediate_visual"  file="visual/left_index_intermediate_visual.stl"/>
+    <mesh name="left_middle_intermediate_visual" file="visual/left_middle_intermediate_visual.stl"/>
+    <mesh name="left_pinky_intermediate_visual"  file="visual/left_pinky_intermediate_visual.stl"/>
+    <mesh name="left_thumb_proximal_base"        file="collision/left_thumb_proximal_base.stl"/>
+    <mesh name="left_thumb_proximal"             file="collision/left_thumb_proximal.stl"/>
+    <mesh name="left_thumb_intermediate"         file="collision/left_thumb_intermediate.stl"/>
+    <mesh name="left_thumb_distal"               file="collision/left_thumb_distal.stl"/>
+    <mesh name="left_index_proximal"             file="collision/left_index_proximal.stl"/>
+    <mesh name="left_index_intermediate"         file="collision/left_index_intermediate.stl"/>
+    <mesh name="left_middle_intermediate"        file="collision/left_middle_intermediate.stl"/>
+    <mesh name="left_pinky_intermediate"         file="collision/left_pinky_intermediate.stl"/>
   </asset>
 
   <worldbody>
@@ -226,9 +248,13 @@
                       <inertial pos="0.027967 9.6e-05 0.000739" quat="0.704961 -0.0198461 -0.019614 0.708697" mass="0.124" diaginertia="0.000169999 0.000137463 8.46436e-05"/>
                       <joint name="left_wrist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.27 1.27" actuatorfrcrange="-19 19"/>
                       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="wrist_yaw_link"/>
-                      <site name="left_hand" pos="0.17 0 0.0" size="0.01" rgba="0 1 0 1"/>
-                      <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.13 0 0"/>
-                      <geom class="collision" type="sphere" size="0.033" pos="0.13 0 0"/>
+                      <site name="left_hand" pos="0.17 0 0" size="0.01" rgba="0 1 0 1"/>
+
+                      <!-- Inspire left hand (mirrored from right; see inspire_left_h12_qnames.xml) -->
+                      <body name="gripper_attachment_L" gravcomp="1" pos="0.054 0 0" quat="0.5 -0.5 0.5 -0.5">
+                        <include file="inspire_left_h12_qnames.xml"/>
+                      </body>
+
                     </body>
                   </body>
                 </body>
@@ -290,6 +316,13 @@
     <joint joint1="index_intermediate_joint"  joint2="index_proximal_joint"  polycoef="-0.05 1.1169 0 0 0"/>
     <joint joint1="thumb_intermediate_joint"  joint2="thumb_proximal_pitch_joint" polycoef="0.15 1.33 0 0"/>
     <joint joint1="thumb_distal_joint"        joint2="thumb_proximal_pitch_joint" polycoef="0.15 0.66 0 0 0"/>
+    <!-- Inspire LEFT hand coupling constraints -->
+    <joint joint1="left_pinky_intermediate_joint"  joint2="left_pinky_proximal_joint"  polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="left_ring_intermediate_joint"   joint2="left_ring_proximal_joint"   polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="left_middle_intermediate_joint" joint2="left_middle_proximal_joint" polycoef="-0.15 1.1169 0 0 0"/>
+    <joint joint1="left_index_intermediate_joint"  joint2="left_index_proximal_joint"  polycoef="-0.05 1.1169 0 0 0"/>
+    <joint joint1="left_thumb_intermediate_joint"  joint2="left_thumb_proximal_pitch_joint" polycoef="0.15 1.33 0 0"/>
+    <joint joint1="left_thumb_distal_joint"        joint2="left_thumb_proximal_pitch_joint" polycoef="0.15 0.66 0 0 0"/>
   </equality>
 
   <actuator>
@@ -329,6 +362,14 @@
     <position class="inspire" name="index"          joint="index_proximal_joint"         ctrlrange="0 1.50"/>
     <position class="inspire" name="thumb_proximal" joint="thumb_proximal_pitch_joint"   ctrlrange="0.1 0.57"/>
     <position class="inspire" name="thumb_yaw"      joint="thumb_proximal_yaw_joint"     ctrlrange="0 1.308"/>
+
+    <!-- Inspire LEFT hand: position actuators -->
+    <position class="inspire" name="left_pinky"          joint="left_pinky_proximal_joint"         ctrlrange="0 1.57"/>
+    <position class="inspire" name="left_ring"           joint="left_ring_proximal_joint"          ctrlrange="0 1.57"/>
+    <position class="inspire" name="left_middle"         joint="left_middle_proximal_joint"        ctrlrange="0 1.50"/>
+    <position class="inspire" name="left_index"          joint="left_index_proximal_joint"         ctrlrange="0 1.50"/>
+    <position class="inspire" name="left_thumb_proximal" joint="left_thumb_proximal_pitch_joint"   ctrlrange="0.1 0.57"/>
+    <position class="inspire" name="left_thumb_yaw"      joint="left_thumb_proximal_yaw_joint"     ctrlrange="0 1.308"/>
   </actuator>
 
   <contact>
@@ -351,6 +392,23 @@
     <exclude body1="middle_proximal" body2="ring_proximal"/>
     <exclude body1="ring_proximal" body2="pinky_proximal"/>
     <exclude body1="thumb_proximal_base" body2="index_proximal"/>
+    <exclude body1="gripper_attachment_L" body2="left_thumb_proximal_base"/>
+    <exclude body1="gripper_attachment_L" body2="left_thumb_proximal"/>
+    <exclude body1="gripper_attachment_L" body2="left_index_proximal"/>
+    <exclude body1="gripper_attachment_L" body2="left_middle_proximal"/>
+    <exclude body1="gripper_attachment_L" body2="left_ring_proximal"/>
+    <exclude body1="gripper_attachment_L" body2="left_pinky_proximal"/>
+    <exclude body1="left_thumb_proximal_base" body2="left_thumb_intermediate"/>
+    <exclude body1="left_thumb_proximal" body2="left_thumb_intermediate"/>
+    <exclude body1="left_thumb_intermediate" body2="left_thumb_distal"/>
+    <exclude body1="left_index_proximal" body2="left_index_intermediate"/>
+    <exclude body1="left_middle_proximal" body2="left_middle_intermediate"/>
+    <exclude body1="left_ring_proximal" body2="left_ring_intermediate"/>
+    <exclude body1="left_pinky_proximal" body2="left_pinky_intermediate"/>
+    <exclude body1="left_index_proximal" body2="left_middle_proximal"/>
+    <exclude body1="left_middle_proximal" body2="left_ring_proximal"/>
+    <exclude body1="left_ring_proximal" body2="left_pinky_proximal"/>
+    <exclude body1="left_thumb_proximal_base" body2="left_index_proximal"/>
   </contact>
 
   <sensor>

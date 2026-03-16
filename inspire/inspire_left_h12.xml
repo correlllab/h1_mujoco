@@ -3,9 +3,9 @@
     Include this inside a <body name="gripper_attachment_L"> in h1_2_inspire.xml.
 
     Attachment transform (left_wrist_yaw_link → hand base):
-      pos="0.054 0 0"  quat="0.5 0.5 -0.5 0.5"  (wxyz)
-    Derived from h1_2_pos_hands.xml:
-      wrist_x = base_z + 0.054,  wrist_y = -base_x,  wrist_z = -base_y
+      pos="0.054 0 0"  quat="0.5 -0.5 0.5 -0.5"  (wxyz)
+    R: [x,y,z] in hand → [z,-x,-y]+[0.054,0,0] in wrist
+    Verified: thumb_base [0.017,-0.020,0.069] → [0.123,-0.017,0.020] matches h1_2_pos_hands.xml
 
     Joint axes are all "0 0 -1" (mirrored from right hand "0 0 1").
     Equality constraints for finger coupling go in the parent MJCF file.
@@ -14,15 +14,15 @@
   -->
   <body name="base" pos="0.00 0 0.0" gravcomp="1" childclass="inspire">
     <site name="eeff" pos="0.070 -0.016 0.155" group="3"/>
-    <geom type="mesh" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" mesh="left_base_link_visual" class="visual"/>
+    <geom type="mesh" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" mesh="left_base_link_visual" class="visual"/>
     <geom size="0.028 0.0139" pos="0 8.60444e-08 0.0136" quat="1.32679e-06 0 0 1" type="cylinder" class="collision"/>
-    <geom size="0.01955 0.0101 0.0287" pos="0.0032 2.31927e-07 0.038" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.01955 0.02 0.0407" pos="0.0032 4.22996e-07 0.0682" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.0161 0.02 0.0407" pos="1.81486e-12 6.83927e-07 0.1081" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.00625 0.00555 0.00445" pos="0.00159992 0.0308992 0.134" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.00625 0.00555 0.00445" pos="0.00159997 0.0117992 0.134" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.00625 0.00555 0.00445" pos="0.00160002 -0.00700084 0.134" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
-    <geom size="0.00625 0.00555 0.00445" pos="0.00160007 -0.0262008 0.134" quat="9.38189e-07 9.38183e-07 -0.707105 -0.707109" type="box" class="collision"/>
+    <geom size="0.01955 0.0101 0.0287" pos="0.0032 2.31927e-07 0.038" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.01955 0.02 0.0407" pos="0.0032 4.22996e-07 0.0682" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.0161 0.02 0.0407" pos="1.81486e-12 6.83927e-07 0.1081" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.00625 0.00555 0.00445" pos="0.00159992 0.0308992 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.00625 0.00555 0.00445" pos="0.00159997 0.0117992 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.00625 0.00555 0.00445" pos="0.00160002 -0.00700084 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
+    <geom size="0.00625 0.00555 0.00445" pos="0.00160007 -0.0262008 0.134" quat="9.38189e-07 -9.38183e-07 -0.707105 0.707109" type="box" class="collision"/>
     <body name="thumb_proximal_base" pos="0.0169599 -0.0204504 0.0691" gravcomp="1" quat="-0.707107 -1.2892e-06 1.30815e-06 0.707106" childclass="inspire">
       <inertial pos="0.0048817 0.0009382 -0.00722" quat="0.408023 0.323596 0.515015 0.680854" mass="0.0018869" diaginertia="8.66026e-08 6.8732e-08 4.94194e-08"/>
       <joint name="thumb_proximal_yaw_joint" pos="0 0 0" axis="0 0 1" range="0 1.308" actuatorfrcrange="-1 1"/>
