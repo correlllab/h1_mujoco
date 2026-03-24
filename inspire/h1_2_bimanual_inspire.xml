@@ -1,7 +1,7 @@
 <mujoco model="H1-2 + Inspire Bimanual (position actuators)">
   <!--
     H1-2 humanoid with BOTH Inspire hands — bimanual position-actuator variant.
-    Used by grasp_viz --h12 --bimanual for dual-arm grasp planning.
+    Used by grasp_viz h12 bimanual for dual-arm grasp planning.
 
     Right hand attachment (right_wrist_yaw_link → hand base):
       pos="0.054 0 0"  quat="0.5 0.5 0.5 0.5"
