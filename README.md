@@ -46,3 +46,17 @@ MuJoCo simulation for the H1_2 robot.
     `rt/lowcmd` and publish to `rt/lowstate`.
 - The simulation is a good test before deploying controllers on the real robot
     in debug mode.
+
+### `h12_mujoco.py` arguments
+
+- `--handless`: use handless model scenes (default).
+- `--inspire`: use inspire-hand model scenes.
+- `--fixed`: use pelvis-fixed scene variant (no elastic band).
+- `--force <link1> <link2> ...`: enable external force interface on given links.
+
+Scene selection behavior:
+
+- default / `--handless`: `scene_handless.xml`
+- `--inspire`: `scene.xml`
+- `--fixed` + default / `--handless`: `scene_handless_pelvis_fixed.xml`
+- `--fixed` + `--inspire`: `scene_pelvis_fixed.xml`
