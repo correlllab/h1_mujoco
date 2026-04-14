@@ -1,102 +1,88 @@
-import time
 import argparse
-import numpy as np
-import pyvista as pv
+import time
+
+import mujoco
 
 from mujoco_env import MujocoEnv
-from pv_interface import PVInterface
 from unitree_interface import SimInterface
 
+try:
+    from ros_bridge import RosSensorBridge, init_ros, shutdown_ros
+    _ROS_AVAILABLE = True
+except ImportError as _ros_err:
+    _ROS_AVAILABLE = False
+    _ROS_IMPORT_ERROR = _ros_err
 
-def sim_loop(fixed=False, force_links=None, handless=False):
+
+ASSETS_DIR = "/home/code/assets"
+
+
+def sim_loop(fixed=False, force_links=None, no_ros=False):
     """
-    Simulating the robot in mujoco.
-    Publishing low state and high state.
-    Subscribing to low command.
-    Includes end-effector force interface for human interaction simulation
+    Run the MuJoCo H1-2 sim headless. Publishes lowstate on DDS domain 1 and,
+    if rclpy is available, head RGBD + 360 deg lidar + TF on ROS 2. Visualize
+    externally via RViz or Foxglove Studio.
     """
-    # initialize mujoco environment
     if fixed:
-        if handless:
-            scene_path = "unitree_robots/h1_2/scene_handless_pelvis_fixed.xml"
-        else:
-            scene_path = "unitree_robots/h1_2/scene_pelvis_fixed.xml"
+        scene_path = f"{ASSETS_DIR}/scene_handless_pelvis_fixed.xml"
         mujoco_env = MujocoEnv(scene_path)
     else:
-        if handless:
-            scene_path = "unitree_robots/h1_2/scene_handless.xml"
-        else:
-            scene_path = "unitree_robots/h1_2/scene.xml"
+        scene_path = f"{ASSETS_DIR}/scene_handless.xml"
         mujoco_env = MujocoEnv(scene_path)
         mujoco_env.init_elastic_band("torso_link")
-    # initialize sdk interface
+
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
-    # initialize external force interface if link names are provided
     if force_links:
         mujoco_env.init_external_force(force_links, magnitude=5.0)
 
-    # # define body name & id for wrench calculation (optional)
-    # body_name = 'left_wrist_yaw_link'
-    # body_id = mujoco_env.model.body(body_name).id
-
-    # # pyvista visualization (optional)
-    # pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
-    # pv_interface.track_body(body_name)
-
-    print("Press P to pause/resume the simulation loop")
-
-    # launch viewer
-    mujoco_env.launch_viewer()
-    # main simulation loop
-    while mujoco_env.viewer.is_running():
-        start_time = time.time()
-
-        if mujoco_env.paused:
-            # keep viewer responsive while paused
-            mujoco_env.viewer.sync()
+    ros_bridge = None
+    if not no_ros:
+        if _ROS_AVAILABLE:
+            init_ros()
+            ros_bridge = RosSensorBridge(mujoco_env.model, mujoco_env.data)
+            print("[h12_mujoco] ROS 2 sensor bridge started (camera + lidar + TF)")
         else:
-            mujoco_env.sim_step()
+            print(f"[h12_mujoco] rclpy not available ({_ROS_IMPORT_ERROR}); skipping ROS bridge")
 
-        # # optional: get and display wrench on end-effector
-        # force, torque = mujoco_env.get_body_wrench(body_id)
-        # print(f'Force: {force}, Torque: {torque}')
-
-        # # optional: update pyvista visualization
-        # pv_interface.update_vector(force)
-        # pv_interface.pv_render()
-
-        time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
+    try:
+        while True:
+            start_time = time.time()
+            mujoco_env.eval_elastic_band()
+            mujoco_env.eval_external_force()
+            mujoco.mj_step(mujoco_env.model, mujoco_env.data)
+            if ros_bridge is not None:
+                ros_bridge.tick()
+            time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
+    finally:
+        if ros_bridge is not None:
+            ros_bridge.shutdown()
+            shutdown_ros()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run H1-2 Mujoco simulation")
+    parser = argparse.ArgumentParser(description="Run H1-2 MuJoCo simulation (headless)")
     parser.add_argument(
         "--fixed",
         action="store_true",
         help="Use pelvis-fixed scene without elastic band",
     )
-    model_group = parser.add_mutually_exclusive_group()
-    model_group.add_argument(
-        "--handless",
-        dest="handless",
-        action="store_true",
-        help="Load handless model scene files (default)",
-    )
-    model_group.add_argument(
-        "--inspire",
-        dest="handless",
-        action="store_false",
-        help="Load inspire-hand model scene files",
-    )
-    # Default to handless model when no model option is provided.
-    parser.set_defaults(handless=True)
     parser.add_argument(
         "--force",
         nargs="+",
         default=None,
         help="Enable external force interface for specified link names",
     )
+    parser.add_argument(
+        "--no-ros",
+        dest="no_ros",
+        action="store_true",
+        help="Disable ROS 2 camera/lidar/TF publishers",
+    )
     args = parser.parse_args()
 
-    sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless)
+    sim_loop(
+        fixed=args.fixed,
+        force_links=args.force,
+        no_ros=args.no_ros,
+    )
