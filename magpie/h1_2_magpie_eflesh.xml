@@ -292,10 +292,14 @@
     <!-- Anchor is in body1 (base_top) frame, from CAD with axis transform -->
     <!-- Left:  CAD (-60.0, -0.750, 65.0) -> MuJoCo (-0.00075, 0.060, 0.065) -->
     <!-- Right: CAD (60.0, -0.750, 65.0)  -> MuJoCo (-0.00075, -0.060, 0.065) -->
-    <connect name="left_4bar_close" active="true" body1="base_top" body2="left_rocker" anchor="-0.00075 0.060 0.065"/>
-    <connect name="right_4bar_close" active="true" body1="base_top" body2="right_rocker" anchor="-0.00075 -0.060 0.065"/>
-    <connect name="leftg_left_4bar_close" active="true" body1="leftg_base_top" body2="leftg_left_rocker" anchor="-0.00075 0.060 0.065"/>
-    <connect name="leftg_right_4bar_close" active="true" body1="leftg_base_top" body2="leftg_right_rocker" anchor="-0.00075 -0.060 0.065"/>
+    <connect name="left_4bar_close" active="true" body1="base_top" body2="left_rocker"
+             anchor="-0.00075 0.060 0.065" solref="0.005 1" solimp="0.95 0.99 0.001"/>
+    <connect name="right_4bar_close" active="true" body1="base_top" body2="right_rocker"
+             anchor="-0.00075 -0.060 0.065" solref="0.005 1" solimp="0.95 0.99 0.001"/>
+    <connect name="leftg_left_4bar_close" active="true" body1="leftg_base_top" body2="leftg_left_rocker"
+             anchor="-0.00075 0.060 0.065" solref="0.005 1" solimp="0.95 0.99 0.001"/>
+    <connect name="leftg_right_4bar_close" active="true" body1="leftg_base_top" body2="leftg_right_rocker"
+             anchor="-0.00075 -0.060 0.065" solref="0.005 1" solimp="0.95 0.99 0.001"/>
   </equality>
 
   <actuator>
