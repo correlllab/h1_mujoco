@@ -7,19 +7,28 @@ from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
 from unitree_interface import SimInterface
 
-def sim_loop(fixed=False, force_links=None):
-    '''
+
+def sim_loop(fixed=False, force_links=None, handless=False):
+    """
     Simulating the robot in mujoco.
     Publishing low state and high state.
     Subscribing to low command.
     Includes end-effector force interface for human interaction simulation
-    '''
+    """
     # initialize mujoco environment
     if fixed:
-        mujoco_env = MujocoEnv('unitree_robots/h1_2/scene_pelvis_fixed.xml')
+        if handless:
+            scene_path = "unitree_robots/h1_2/scene_handless_pelvis_fixed.xml"
+        else:
+            scene_path = "unitree_robots/h1_2/scene_pelvis_fixed.xml"
+        mujoco_env = MujocoEnv(scene_path)
     else:
-        mujoco_env = MujocoEnv('unitree_robots/h1_2/scene.xml')
-        mujoco_env.init_elastic_band('torso_link')
+        if handless:
+            scene_path = "unitree_robots/h1_2/scene_handless.xml"
+        else:
+            scene_path = "unitree_robots/h1_2/scene.xml"
+        mujoco_env = MujocoEnv(scene_path)
+        mujoco_env.init_elastic_band("torso_link")
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
@@ -35,7 +44,7 @@ def sim_loop(fixed=False, force_links=None):
     # pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
     # pv_interface.track_body(body_name)
 
-    print('Press P to pause/resume the simulation loop')
+    print("Press P to pause/resume the simulation loop")
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -59,12 +68,35 @@ def sim_loop(fixed=False, force_links=None):
 
         time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run H1-2 Mujoco simulation')
-    parser.add_argument('--fixed', action='store_true',
-                        help='Use pelvis-fixed scene without elastic band')
-    parser.add_argument('--force', nargs='+', default=None,
-                        help='Enable external force interface for specified link names')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run H1-2 Mujoco simulation")
+    parser.add_argument(
+        "--fixed",
+        action="store_true",
+        help="Use pelvis-fixed scene without elastic band",
+    )
+    model_group = parser.add_mutually_exclusive_group()
+    model_group.add_argument(
+        "--handless",
+        dest="handless",
+        action="store_true",
+        help="Load handless model scene files (default)",
+    )
+    model_group.add_argument(
+        "--inspire",
+        dest="handless",
+        action="store_false",
+        help="Load inspire-hand model scene files",
+    )
+    # Default to handless model when no model option is provided.
+    parser.set_defaults(handless=True)
+    parser.add_argument(
+        "--force",
+        nargs="+",
+        default=None,
+        help="Enable external force interface for specified link names",
+    )
     args = parser.parse_args()
 
-    sim_loop(fixed=args.fixed, force_links=args.force)
+    sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless)
