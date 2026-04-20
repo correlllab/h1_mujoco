@@ -229,7 +229,7 @@
                         <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" pos="0.054 0 0" quat="0.7071068 0.0 0.70710685 0.0" mesh="h12_mount"/>
                         <geom name="h12_collision_L" size="0.032 0.0125" pos="0.0665 0 0" quat="0.7071068 0.0 0.70710685 0.0" density="0" type="cylinder" class="collision"/>
                         <body name="gripper_attachment_L" gravcomp="1" pos="0.079 0 -0.003125" quat="0.7071068 0.0 0.70710685 0.0">
-                          <include file="magpie/magpie_gripper_eflesh_left.xml"/>
+                          <include file="magpie_gripper_eflesh_left.xml"/>
                         </body>
 
 
@@ -273,7 +273,7 @@
                         <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" pos="0.054 0 0" quat="0.7071068 0.0 0.70710685 0.0" mesh="h12_mount"/>
                         <geom name="h12_collision" size="0.032 0.0125" pos="0.0665 0 0" quat="0.7071068 0.0 0.70710685 0.0" density="0" type="cylinder" class="collision"/>
                         <body name="gripper_attachment" gravcomp="1" pos="0.079 0 -0.003125" quat="0.7071068 0.0 0.70710685 0.0">
-                          <include file="magpie/magpie_gripper_eflesh.xml"/>
+                          <include file="magpie_gripper_eflesh.xml"/>
                         </body>
 
 
