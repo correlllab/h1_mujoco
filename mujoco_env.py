@@ -210,10 +210,17 @@ class MujocoEnv:
         mujoco.mj_forward(self.model, self.data)
         mujoco.mj_jacBody(self.model, self.data, jac_pos, jac_rot, body_id)
 
-        # jac_pos is 3xN positional jacobian, jac_rot is 3xN rotational jacobian
-        # the first 6 DOF are fixed, so set to 0
-        jac_pos[0:3, 0:7] = 0
-        jac_rot[0:3, 0:7] = 0
+        # Zero out the free joint columns (first 6 DOF in velocity space)
+        # only when the pelvis is welded to world (no free joint active).
+        # nq > nv indicates a free joint is present (7 qpos vs 6 qvel).
+        if self.model.nq > self.model.nv:
+            # Free joint active — keep all Jacobian columns.
+            pass
+        else:
+            # Pelvis fixed — zero the first 6 columns (free joint remnant
+            # still present in the model's velocity space when welded).
+            jac_pos[:, :6] = 0
+            jac_rot[:, :6] = 0
         return jac_pos, jac_rot
 
     def get_site_jacobian(self, site_id):
@@ -255,20 +262,20 @@ class MujocoEnv:
 
         return world_force, world_torque
 
-    def get_site_wrench(self, body_id, joint_torque=None):
+    def get_site_wrench(self, site_id, joint_torque=None):
         '''
-        Get the body torque in world frame
+        Get the site wrench in world frame
         '''
         if joint_torque is None:
             joint_torque = np.zeros(self.model.nv)
             motor_torque = self.get_motor_torque()
-            joint_torque[7:27] = motor_torque[0:20]
-            joint_torque[39:46] = motor_torque[20:27]
+            joint_torque[6:26] = motor_torque[0:20]
+            joint_torque[38:45] = motor_torque[20:27]
         # subtract gravity bias
         joint_torque[6:26] -= self.data.qfrc_bias[6:26]
         joint_torque[38:45] -= self.data.qfrc_bias[38:45]
         # get positional and rotational jacobian
-        jac_pos, jac_rot = self.get_site_jacobian(body_id)
+        jac_pos, jac_rot = self.get_site_jacobian(site_id)
         # compute wrench in world frame
         jac = np.vstack((jac_pos, jac_rot))
         world_wrench = np.linalg.inv(jac @ jac.T) @ jac @ joint_torque
