@@ -23,14 +23,14 @@ SPAWN_POSES: dict[tuple[int, int], tuple[float, float, float]] = {
     # Layout 1 / Style 1: counters line the back wall (y ≈ -0.2 to -0.4); the
     # walkable aisle sits at y < -0.6. Center of the room is (2.75, -1.5).
     # Spawn ~0.65 m back from the counter face on the kitchen centerline.
-    (1, 1): (2.75, -1.0, 1.03),
+    (1, 1): (2.75, -1.0, 1.05),
 }
 
 
 def build_kitchen_scene(
     layout_id: int = 1,
     style_id: int = 1,
-    robot_xml: str = "/home/code/assets/h1_2_handless.xml",
+    robot_xml: str = "/home/code/assets/mujoco_assets/h1_2_handless.xml",
     out_path: str = "/tmp/kitchen_scene.xml",
     fixture_seed: int = 0,
 ) -> str:
