@@ -24,11 +24,18 @@ class MujocoEnv:
 
     def launch_viewer(self):
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
-        # set camera position
+
+        # lookat follows the pelvis spawn baked in by scene_builder.SPAWN_POSES;
+        # body_pos is the static offset on the merged XML, so no mj_forward needed.
+        self.viewer.cam.lookat = self.model.body('pelvis').pos.copy()
         self.viewer.cam.azimuth = 88.650
         self.viewer.cam.distance = 5.269
-        self.viewer.cam.elevation = -29.7
-        self.viewer.cam.lookat = [0.001, -0.103, 0.623]
+        self.viewer.cam.elevation = -50.0
+
+        # Group 0 holds collision primitives (joint spheres, leg cylinders,
+        # untextured collision-mesh duplicates); group 1 holds the textured
+        # visual meshes. Hiding group 0 = the same effect as pressing "0".
+        self.viewer.opt.geomgroup[0] = 0
 
     def sim_step(self):
         # step the simulator
