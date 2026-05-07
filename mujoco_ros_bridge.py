@@ -19,6 +19,7 @@ so rendering must happen on the main thread.
 import io
 import os
 import struct
+from array import array as _array
 
 import mujoco
 import numpy as np
@@ -29,12 +30,6 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image, Imu, PointCloud2, PointField
-
-
-# Distance to step a ray past a self-hit before re-casting.
-SELF_HIT_EPSILON = 1e-4
-# Cap on self-hit re-casts per ray (multiRay first cast counts as one).
-MAX_SELF_HITS = 16
 
 
 def _sim_time_to_msg(sim_time: float) -> TimeMsg:
@@ -73,12 +68,12 @@ class RosSensorBridge(Node):
         cam_frame: str = "camera_link",
         lidar_body: str = "livox_link",
         lidar_frame: str = "lidar_link",
-        cam_width: int = 640,
-        cam_height: int = 480,
-        cam_rate_hz: float = 10.0,
-        lidar_az_rays: int = 360,
-        lidar_el_rays: int = 56,
-        lidar_rate_hz: float = 10.0,
+        cam_width: int = 320,
+        cam_height: int = 240,
+        cam_rate_hz: float = 5.0,
+        lidar_az_rays: int = 180,
+        lidar_el_rays: int = 28,
+        lidar_rate_hz: float = 5.0,
         lidar_max_range: float = 30.0,
         imu_quat_sensor: str = "livox_imu_quat",
         imu_gyro_sensor: str = "livox_imu_gyro",
@@ -148,7 +143,6 @@ class RosSensorBridge(Node):
         # (m, 1) for the geomid / dist / vec / pnt / geomgroup args.
         self._lidar_dists = np.full((self.lidar_rays, 1), -1.0, dtype=np.float64)
         self._lidar_geomids = np.full((self.lidar_rays, 1), -1, dtype=np.int32)
-        self._lidar_ray_geomid = np.zeros((1, 1), dtype=np.int32)
 
         # /clock stays on default reliable QoS so subscribers don't drop ticks.
         self.pub_clock = self.create_publisher(Clock, "/clock", 10)
@@ -270,7 +264,12 @@ class RosSensorBridge(Node):
         rgb_msg.header.stamp = stamp
         rgb_msg.header.frame_id = self.cam_frame
         rgb_msg.format = "jpeg"
-        rgb_msg.data = rgb_jpeg.getvalue()
+        # Wrap byte payloads in array.array('B', …) — rclpy's auto-generated
+        # message setters validate the data field element-by-element when fed
+        # raw bytes (one isinstance check per byte → ~17 ms/frame at 320×240
+        # RGB+depth). array.array('B') tells the binding "uint8 array, no
+        # validation needed" and the setter copies in O(N) C.
+        rgb_msg.data = _array("B", rgb_jpeg.getvalue())
         self.pub_rgb.publish(rgb_msg)
 
         rgb_raw = Image()
@@ -281,7 +280,7 @@ class RosSensorBridge(Node):
         rgb_raw.encoding = "rgb8"
         rgb_raw.is_bigendian = 0
         rgb_raw.step = self.cam_width * 3
-        rgb_raw.data = rgb_u8.tobytes()
+        rgb_raw.data = _array("B", rgb_u8.tobytes())
         self.pub_rgb_raw.publish(rgb_raw)
 
         r.enable_depth_rendering()
@@ -308,7 +307,7 @@ class RosSensorBridge(Node):
         depth_msg.header.stamp = stamp
         depth_msg.header.frame_id = self.cam_frame
         depth_msg.format = "16UC1; compressedDepth"
-        depth_msg.data = depth_header + depth_png.getvalue()
+        depth_msg.data = _array("B", depth_header + depth_png.getvalue())
         self.pub_depth.publish(depth_msg)
 
         depth_raw = Image()
@@ -319,7 +318,7 @@ class RosSensorBridge(Node):
         depth_raw.encoding = "16UC1"
         depth_raw.is_bigendian = 0
         depth_raw.step = self.cam_width * 2
-        depth_raw.data = np.ascontiguousarray(depth_mm).tobytes()
+        depth_raw.data = _array("B", np.ascontiguousarray(depth_mm).tobytes())
         self.pub_depth_raw.publish(depth_raw)
 
         info = self.cam_info_msg
@@ -334,8 +333,10 @@ class RosSensorBridge(Node):
         # rot maps local→world (column vecs); for row-vec array: world = local @ rot.T
         world_dirs = np.ascontiguousarray(self.lidar_local_dirs @ rot.T, dtype=np.float64)
 
-        # Fast path: one batched cast for all rays. Self-hits are resolved
-        # in a follow-up per-ray pass below.
+        # Single batched cast. bodyexclude=torso skips the torso shell at the
+        # source: the lidar sits inside the torso visual mesh and otherwise
+        # every ray would self-hit at ~2 cm, forcing a per-ray retry loop
+        # (~280 ms/scan). Excluding here gives ~80 ms/scan.
         dists = self._lidar_dists
         geomids = self._lidar_geomids
         dists.fill(-1.0)
@@ -344,53 +345,13 @@ class RosSensorBridge(Node):
             self.model, self.data,
             origin, world_dirs.reshape(-1, 1),
             self.lidar_geomgroup,
-            1,                  # include static geoms
-            -1,                 # bodyexclude (none)
+            1,                              # include static geoms
+            self.lidar_exclude_body_id,     # skip torso geoms
             geomids, dists,
             self.lidar_rays,
             self.lidar_max_range,
         )
-
-        # Flatten (rays, 1) buffers back to 1D for the rest of the routine.
-        dists_flat = dists.ravel()
-        geomids_flat = geomids.ravel()
-        hit_dists = dists_flat.copy()
-
-        # Identify rays whose first hit was a torso-shell geom — the only body
-        # we treat as self-occluding. Clamp -1 entries before indexing so the
-        # masked comparison stays well-defined; the geomids>=0 guard keeps
-        # the logic correct.
-        safe_geomids = np.where(geomids_flat >= 0, geomids_flat, 0)
-        excluded_hit_mask = (geomids_flat >= 0) & self.geom_excluded[safe_geomids]
-
-        # Slow path: re-cast each excluded ray once with bodyexclude pinned
-        # to the torso, so the next surface (limbs, scene geoms, or nothing)
-        # becomes the reported return. The retry loop is kept generic in
-        # case torso has multiple geoms separated in space.
-        ray_geomid = self._lidar_ray_geomid
-        for i in np.flatnonzero(excluded_hit_mask):
-            world_dir = world_dirs[i].reshape(3, 1)
-            accumulated = float(dists_flat[i]) + SELF_HIT_EPSILON
-            ray_origin = origin + world_dir * accumulated
-            hit_dists[i] = -1.0  # default to "no hit" until we exit the torso
-
-            for _ in range(MAX_SELF_HITS - 1):
-                d = mujoco.mj_ray(
-                    self.model, self.data,
-                    ray_origin, world_dir,
-                    self.lidar_geomgroup,
-                    1,
-                    self.lidar_exclude_body_id,
-                    ray_geomid,
-                )
-                if d < 0.0 or ray_geomid[0, 0] < 0:
-                    break
-                if not self.geom_excluded[ray_geomid[0, 0]]:
-                    hit_dists[i] = accumulated + d
-                    break
-                step = d + SELF_HIT_EPSILON
-                accumulated += step
-                ray_origin = ray_origin + world_dir * step
+        hit_dists = dists.ravel()
 
         # Points in lidar-local frame: local_dir * distance.
         valid = (hit_dists >= 0.0) & (hit_dists <= self.lidar_max_range)
@@ -410,7 +371,7 @@ class RosSensorBridge(Node):
         msg.point_step = 12
         msg.row_step = 12 * msg.width
         msg.is_dense = True
-        msg.data = pts.tobytes()
+        msg.data = _array("B", pts.tobytes())
         self.pub_lidar.publish(msg)
 
 
