@@ -30,6 +30,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image, Imu, PointCloud2, PointField
+from std_srvs.srv import Trigger
 
 
 def _sim_time_to_msg(sim_time: float) -> TimeMsg:
@@ -80,10 +81,14 @@ class RosSensorBridge(Node):
         imu_acc_sensor: str = "livox_imu_acc",
         imu_frame: str = "lidar_link",
         imu_rate_hz: float = 100.0,
+        elastic_band=None,
+        sim_lock=None,
     ):
         super().__init__("mujoco_sensors")
         self.model = model
         self.data = data
+        self.elastic_band = elastic_band
+        self.sim_lock = sim_lock
 
         self.cam_name = cam_name
         self.cam_frame = cam_frame
@@ -166,6 +171,11 @@ class RosSensorBridge(Node):
         self.imu_gyro_adr, self.imu_gyro_dim = self._sensor_adr(imu_gyro_sensor)
         self.imu_acc_adr, self.imu_acc_dim = self._sensor_adr(imu_acc_sensor)
 
+        if elastic_band is not None:
+            self.create_service(
+                Trigger, "/elastic_band/toggle", self._on_elastic_band_toggle
+            )
+
         # Lazy renderer — created on first tick() call, which runs on the
         # same (main) thread as the viewer and subsequent renders.
         self._renderer = None
@@ -181,6 +191,16 @@ class RosSensorBridge(Node):
         if sid < 0:
             raise RuntimeError(f"sensor '{name}' not found in MJCF")
         return int(self.model.sensor_adr[sid]), int(self.model.sensor_dim[sid])
+
+    def _on_elastic_band_toggle(self, request, response):
+        if self.sim_lock is not None:
+            with self.sim_lock:
+                enabled = self.elastic_band.toggle()
+        else:
+            enabled = self.elastic_band.toggle()
+        response.success = True
+        response.message = "enabled" if enabled else "disabled"
+        return response
 
     def shutdown(self) -> None:
         if self._renderer is not None:
