@@ -8,14 +8,14 @@ MultiThreadedExecutor sharing the sim's threading.Lock so that callbacks
 can safely touch MjData while mj_step runs on the main thread.
 
 Topics / services / actions exposed (per side):
-  /gripper/<side>/state                       magpie_msgs/msg/GripperState (10 Hz)
+  /gripper/<side>/state                       custom_ros_messages/msg/GripperState (10 Hz)
   /gripper/<side>/open                        std_srvs/srv/Trigger
   /gripper/<side>/close                       std_srvs/srv/Trigger
-  /gripper/<side>/set_position                magpie_msgs/srv/SetGripperPosition
-  /gripper/<side>/set_force                   magpie_msgs/srv/SetGripperForce
+  /gripper/<side>/set_position                custom_ros_messages/srv/SetGripperPosition
+  /gripper/<side>/set_force                   custom_ros_messages/srv/SetGripperForce
   /gripper/<side>/calibrate                   std_srvs/srv/Trigger
   /gripper/<side>/reset_parameters            std_srvs/srv/Trigger
-  /gripper/<side>/deligrasp                   magpie_msgs/action/DeliGrasp
+  /gripper/<side>/deligrasp                   custom_ros_messages/action/DeliGrasp
 """
 import threading
 import time
@@ -29,13 +29,13 @@ from rclpy.node import Node
 from std_srvs.srv import Trigger
 
 try:
-    from magpie_msgs.action import DeliGrasp
-    from magpie_msgs.msg import GripperState
-    from magpie_msgs.srv import SetGripperForce, SetGripperPosition
+    from custom_ros_messages.action import DeliGrasp
+    from custom_ros_messages.msg import GripperState
+    from custom_ros_messages.srv import SetGripperForce, SetGripperPosition
 except ModuleNotFoundError as exc:
-    if exc.name == "magpie_msgs":
+    if exc.name == "custom_ros_messages":
         raise ModuleNotFoundError(
-            "magpie_msgs is not available in this shell. Source the workspace "
+            "custom_ros_messages is not available in this shell. Source the workspace "
             "before launching the sim, e.g. "
             "`source /opt/ros/humble/setup.bash && "
             "source ~/Humanoid_Simulation/core_ws/install/setup.bash`."
