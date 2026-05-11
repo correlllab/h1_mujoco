@@ -29,13 +29,13 @@ from rclpy.node import Node
 from std_srvs.srv import Trigger
 
 try:
-    from custom_ros_messages.action import DeliGrasp
-    from custom_ros_messages.msg import GripperState
-    from custom_ros_messages.srv import SetGripperForce, SetGripperPosition
+    from magpie_msgs.action import DeliGrasp
+    from magpie_msgs.msg import GripperState
+    from magpie_msgs.srv import SetGripperForce, SetGripperPosition
 except ModuleNotFoundError as exc:
-    if exc.name == "custom_ros_messages":
+    if exc.name == "magpie_msgs":
         raise ModuleNotFoundError(
-            "custom_ros_messages is not available in this shell. Source the workspace "
+            "magpie_msgs is not available in this shell. Source the workspace "
             "before launching the sim, e.g. "
             "`source /opt/ros/humble/setup.bash && "
             "source ~/Humanoid_Simulation/core_ws/install/setup.bash`."
