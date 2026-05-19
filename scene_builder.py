@@ -108,7 +108,7 @@ SPAWN_POSES: dict[tuple[int, int], tuple[float, float, float]] = {
 def build_kitchen_scene(
     layout_id: int = 1,
     style_id: int = 1,
-    robot_xml: str = "/home/code/CL_Assets/mujoco_assets/h1_2_magpie_eflesh.xml",
+    robot_xml: str = "/home/code/CL_Assets/mujoco_assets/h1_2_magpie.xml",
     out_path: str = "/tmp/kitchen_scene.xml",
     fixture_seed: int = 0,
 ) -> str:
