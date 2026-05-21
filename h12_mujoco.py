@@ -20,7 +20,7 @@ def sim_loop(viewer=True):
     an X display); set viewer=False to run headless and visualize externally
     via RViz or Foxglove Studio.
     """
-    scene_path = build_kitchen_scene(layout_id=1, style_id=1)
+    scene_path = build_kitchen_scene(layout_id=1, style_id=2)
     mujoco_env = MujocoEnv(scene_path)
     mujoco_env.init_elastic_band("torso_link")
 

@@ -4,6 +4,7 @@ Used by h12_mujoco.py when invoked with `--scene kitchen`. Imports robosuite
 and robocasa lazily so that running without `--scene kitchen` does not require
 those packages to be installed.
 """
+import math
 import os
 import types
 import xml.etree.ElementTree as ET
@@ -94,14 +95,15 @@ class _NestedDefaultsMujocoXML(MujocoXML):
         for child in root:
             self._replace_defaults_inline(default_dic=default_dic, root=child)
 
-# Per-(layout_id, style_id) pelvis spawn pose (xyz, meters). Hand-tuned to
-# place the robot in a clear aisle of the chosen kitchen layout. Add new
-# entries when you bake additional combos.
-SPAWN_POSES: dict[tuple[int, int], tuple[float, float, float]] = {
-    # Layout 1 / Style 1: counters line the back wall (y ≈ -0.2 to -0.4); the
-    # walkable aisle sits at y < -0.6. Center of the room is (2.75, -1.5).
-    # Spawn ~0.65 m back from the counter face on the kitchen centerline.
-    (1, 1): (2.75, -1.0, 1.05),
+# Per-layout pelvis spawn pose (xyz in meters, yaw in radians about world Z).
+# Hand-tuned to place the robot in a clear aisle of the chosen kitchen layout.
+# Keyed by layout_id only — style_id swaps materials/finishes but preserves
+# fixture geometry, so the same pose works across styles.
+SPAWN_POSES: dict[int, tuple[float, float, float, float]] = {
+    # Layout 1: counters line the back wall (y ≈ -0.2 to -0.4); the walkable
+    # aisle sits at y < -0.6. Center of the room is (2.75, -1.5). Spawn
+    # ~0.65 m back from the counter face on the kitchen centerline.
+    1: (4.25, -1.5, 1.05, math.pi/2),
 }
 
 
@@ -188,14 +190,15 @@ def build_kitchen_scene(
             f"body 'pelvis' not found in {robot_xml}; cannot set spawn pose"
         )
     try:
-        spawn = SPAWN_POSES[(layout_id, style_id)]
+        spawn = SPAWN_POSES[layout_id]
     except KeyError:
         raise RuntimeError(
-            f"no spawn pose recorded for (layout={layout_id}, style={style_id}); "
-            f"add an entry to scene_builder.SPAWN_POSES after picking a clear "
-            f"spot in the viewer."
+            f"no spawn pose recorded for layout={layout_id}; add an entry to "
+            f"scene_builder.SPAWN_POSES after picking a clear spot in the viewer."
         )
     pelvis.set("pos", f"{spawn[0]} {spawn[1]} {spawn[2]}")
+    yaw = spawn[3]
+    pelvis.set("quat", f"{math.cos(yaw / 2.0)} 0 0 {math.sin(yaw / 2.0)}")
 
     # ManipulationTask wraps the arena and appends each fixture's get_obj()
     # into the task's worldbody — that's the step KitchenArena alone skips,

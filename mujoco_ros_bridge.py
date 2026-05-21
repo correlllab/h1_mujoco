@@ -8,7 +8,8 @@ Topics published (frame IDs match URDF link names):
   /realsense/head/aligned_depth_to_color/image_raw/compressedDepth
                                                                 sensor_msgs/CompressedImage (16UC1 png)
   /realsense/head/color/camera_info                             sensor_msgs/CameraInfo
-  /livox/lidar                                                  sensor_msgs/PointCloud2
+  /livox/lidar                                                  livox_ros_driver2/CustomMsg
+  /livox/pointcloud                                             sensor_msgs/PointCloud2 (same scan, driver-native layout)
   /livox/imu                                                    sensor_msgs/Imu (co-located w/ lidar)
 
 tick() is called once per sim step from the main loop. High-rate publishers
@@ -26,8 +27,9 @@ import numpy as np
 import rclpy
 from builtin_interfaces.msg import Time as TimeMsg
 from PIL import Image as PILImage
+from livox_ros_driver2.msg import CustomMsg, CustomPoint
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image, Imu, PointCloud2, PointField
 from std_srvs.srv import Trigger
@@ -41,6 +43,35 @@ def _sim_time_to_msg(sim_time: float) -> TimeMsg:
     msg.sec = sec
     msg.nanosec = nanosec
     return msg
+
+
+# PointCloud2 layout mirrors livox_ros_driver2's native xfer_format=0 output
+# (LivoxPointXyzrtlt in lddc.cpp:262-296): 26-byte unaligned point. Keep this
+# in sync with the real driver so downstream nodes don't care whether the
+# scan comes from sim or hardware.
+PC2_DTYPE = np.dtype(
+    [
+        ("x", np.float32),
+        ("y", np.float32),
+        ("z", np.float32),
+        ("intensity", np.float32),
+        ("tag", np.uint8),
+        ("line", np.uint8),
+        ("timestamp", np.float64),
+    ],
+    align=False,
+)
+assert PC2_DTYPE.itemsize == 26
+PC2_POINT_STEP = PC2_DTYPE.itemsize
+PC2_FIELDS = [
+    PointField(name="x",         offset=0,  datatype=PointField.FLOAT32, count=1),
+    PointField(name="y",         offset=4,  datatype=PointField.FLOAT32, count=1),
+    PointField(name="z",         offset=8,  datatype=PointField.FLOAT32, count=1),
+    PointField(name="intensity", offset=12, datatype=PointField.FLOAT32, count=1),
+    PointField(name="tag",       offset=16, datatype=PointField.UINT8,   count=1),
+    PointField(name="line",      offset=17, datatype=PointField.UINT8,   count=1),
+    PointField(name="timestamp", offset=18, datatype=PointField.FLOAT64, count=1),
+]
 
 
 def _build_camera_info(width: int, height: int, fovy_deg: float, frame_id: str) -> CameraInfo:
@@ -66,12 +97,12 @@ class RosSensorBridge(Node):
         model,
         data,
         cam_name: str = "head_cam",
-        cam_frame: str = "camera_link",
+        cam_frame: str = "camera_color_optical_frame",
         lidar_body: str = "livox_link",
         lidar_frame: str = "lidar_link",
-        cam_width: int = 320,
-        cam_height: int = 240,
-        cam_rate_hz: float = 5.0,
+        cam_width: int = 1280,
+        cam_height: int = 720,
+        cam_rate_hz: float = 15.0,
         lidar_az_rays: int = 180,
         lidar_el_rays: int = 28,
         lidar_rate_hz: float = 5.0,
@@ -143,6 +174,11 @@ class RosSensorBridge(Node):
             axis=-1,
         ).reshape(-1, 3)
         self.lidar_rays = self.lidar_local_dirs.shape[0]
+        self.lidar_az_rays = lidar_az_rays
+        # Mid-360 has 6 laser lines. Map each synthetic ray's elevation index
+        # mod 6 to a line number so FAST-LIO's N_SCANS=6 filter accepts all
+        # points evenly distributed across scans.
+        self.lidar_lines = ((np.arange(self.lidar_rays) // lidar_az_rays) % 6).astype(np.uint8)
         # Preallocated mj_multiRay output buffers (overwritten each tick).
         # mujoco 3.3.1's pybind binding requires column-vector shapes
         # (m, 1) for the geomid / dist / vec / pnt / geomgroup args.
@@ -162,8 +198,21 @@ class RosSensorBridge(Node):
             Image, "/realsense/head/aligned_depth_to_color/image_raw", qos_profile_sensor_data)
         self.pub_info = self.create_publisher(
             CameraInfo, "/realsense/head/color/camera_info", qos_profile_sensor_data)
-        self.pub_lidar = self.create_publisher(PointCloud2, "/livox/lidar", qos_profile_sensor_data)
-        self.pub_imu = self.create_publisher(Imu, "/livox/imu", qos_profile_sensor_data)
+        # FAST-LIO subscribes to /livox/lidar (CustomMsg) and /livox/imu (Imu)
+        # with RELIABLE QoS (laserMapping.cpp:923,929). Match it so DDS doesn't
+        # drop scans on a QoS mismatch.
+        self.pub_lidar = self.create_publisher(
+            CustomMsg, "/livox/lidar",
+            QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                       history=HistoryPolicy.KEEP_LAST, depth=20))
+        self.pub_pc2 = self.create_publisher(
+            PointCloud2, "/livox/pointcloud",
+            QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                       history=HistoryPolicy.KEEP_LAST, depth=20))
+        self.pub_imu = self.create_publisher(
+            Imu, "/livox/imu",
+            QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                       history=HistoryPolicy.KEEP_LAST, depth=10))
 
         self.imu_frame = imu_frame
         self.imu_period = 1.0 / imu_rate_hz
@@ -271,11 +320,23 @@ class RosSensorBridge(Node):
 
     def _publish_camera_frame(self, stamp: TimeMsg) -> None:
         if self._renderer is None:
+            if self.model.vis.global_.offwidth < self.cam_width:
+                self.model.vis.global_.offwidth = self.cam_width
+            if self.model.vis.global_.offheight < self.cam_height:
+                self.model.vis.global_.offheight = self.cam_height
             self._renderer = mujoco.Renderer(self.model, height=self.cam_height, width=self.cam_width)
+            # Group 0: red collision primitives (joint spheres, mesh
+            # duplicates) — hide. Group 1: H1 body visual meshes — show.
+            # Group 2: magpie hand visuals + h12 wrist mount — show.
+            # Group 3: magpie collision meshes + finger pad boxes — hide.
+            self._scene_opt = mujoco.MjvOption()
+            self._scene_opt.geomgroup[:] = 0
+            self._scene_opt.geomgroup[1] = 1
+            self._scene_opt.geomgroup[2] = 1
         r = self._renderer
 
         r.disable_depth_rendering()
-        r.update_scene(self.data, camera=self.cam_name)
+        r.update_scene(self.data, camera=self.cam_name, scene_option=self._scene_opt)
         rgb_u8 = np.ascontiguousarray(r.render(), dtype=np.uint8)
 
         rgb_jpeg = io.BytesIO()
@@ -304,7 +365,7 @@ class RosSensorBridge(Node):
         self.pub_rgb_raw.publish(rgb_raw)
 
         r.enable_depth_rendering()
-        r.update_scene(self.data, camera=self.cam_name)
+        r.update_scene(self.data, camera=self.cam_name, scene_option=self._scene_opt)
         depth = r.render()
 
         # Mask "no hit" pixels (far-plane sentinel + non-finite/<=0) to 0
@@ -376,23 +437,46 @@ class RosSensorBridge(Node):
         # Points in lidar-local frame: local_dir * distance.
         valid = (hit_dists >= 0.0) & (hit_dists <= self.lidar_max_range)
         pts = (self.lidar_local_dirs[valid] * hit_dists[valid, np.newaxis]).astype(np.float32)
+        lines = self.lidar_lines[valid]
 
-        msg = PointCloud2()
+        msg = CustomMsg()
         msg.header.stamp = stamp
         msg.header.frame_id = self.lidar_frame
-        msg.height = 1
-        msg.width = int(pts.shape[0])
-        msg.fields = [
-            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+        msg.timebase = int(self.data.time * 1e9)
+        msg.point_num = int(pts.shape[0])
+        msg.lidar_id = 0
+        msg.rsvd = [0, 0, 0]
+        msg.points = [
+            CustomPoint(
+                offset_time=0,
+                x=float(pts[i, 0]), y=float(pts[i, 1]), z=float(pts[i, 2]),
+                reflectivity=0, tag=0, line=int(lines[i]),
+            )
+            for i in range(msg.point_num)
         ]
-        msg.is_bigendian = False
-        msg.point_step = 12
-        msg.row_step = 12 * msg.width
-        msg.is_dense = True
-        msg.data = _array("B", pts.tobytes())
         self.pub_lidar.publish(msg)
+
+        # Parallel sensor_msgs/PointCloud2 on /livox/pointcloud — same scan,
+        # same stamp/frame, driver-native field layout. intensity/tag/timestamp
+        # stay zero (sim has no reflectivity or per-point time, matching the
+        # CustomMsg's reflectivity=0 / offset_time=0).
+        arr = np.zeros(pts.shape[0], dtype=PC2_DTYPE)
+        arr["x"] = pts[:, 0]
+        arr["y"] = pts[:, 1]
+        arr["z"] = pts[:, 2]
+        arr["line"] = lines
+        pc2 = PointCloud2()
+        pc2.header.stamp = stamp
+        pc2.header.frame_id = self.lidar_frame
+        pc2.height = 1
+        pc2.width = int(pts.shape[0])
+        pc2.fields = PC2_FIELDS
+        pc2.is_bigendian = False
+        pc2.point_step = PC2_POINT_STEP
+        pc2.row_step = PC2_POINT_STEP * pc2.width
+        pc2.is_dense = True
+        pc2.data = arr.tobytes()
+        self.pub_pc2.publish(pc2)
 
 
 def init_ros() -> bool:
