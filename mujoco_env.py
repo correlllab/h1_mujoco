@@ -23,6 +23,13 @@ class MujocoEnv:
         self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
 
+        # render decoupling: draw the viewer at ~render_hz instead of once PER physics step.
+        # rendering every step is what throttled the twin to ~0.36x real-time; physics still steps
+        # every iteration (band/forces/mj_step cadence UNCHANGED), only the screen refresh is rarer.
+        self.render_hz = 30.0
+        self._render_every = max(1, round((1.0 / self.render_hz) / self.timestep))
+        self._render_i = 0
+
     def init_elastic_band(self, link_name='torso_link',
                           point=np.array([0, 0, 2.0]),
                           length=0, stiffness=1e3, damping=1e3):
@@ -185,20 +192,31 @@ class MujocoEnv:
         self.viewer.cam.lookat = [0.001, -0.103, 0.623]
 
     def sim_step(self):
+        # --- PHYSICS: every step ---
+        # Clear last step's applied force so the band / external force apply a FRESH value each step.
+        # eval_* use += (accumulate) and mj_step does NOT clear xfrc_applied, so without this the band
+        # becomes an unstable INTEGRAL force that rockets the robot up (base_z -> thousands of m). It
+        # builds up faster now that the twin runs real-time (more steps/sec). With this zero it is a
+        # proper spring -> stable hang (~1.03-1.07 m). Also fixes the stale force left after SPACE-release.
+        self.data.xfrc_applied[:] = 0.0
         # evaluate elastic band
         self.eval_elastic_band()
         # evaluate external forces
         self.eval_external_force()
         # step the simulator
         mujoco.mj_step(self.model, self.data)
-        # reset custom geometry buffer for visualization
-        self.reset_geom_buffer()
-        # draw elastic band
-        self.draw_elastic_band()
-        # draw external force
-        self.draw_external_force()
-        # sync user input
-        self.viewer.sync()
+        # --- RENDER: only ~render_hz, NOT every physics step (decoupled -> physics runs real-time) ---
+        self._render_i += 1
+        if self._render_i >= self._render_every:
+            self._render_i = 0
+            # reset custom geometry buffer for visualization
+            self.reset_geom_buffer()
+            # draw elastic band
+            self.draw_elastic_band()
+            # draw external force
+            self.draw_external_force()
+            # sync user input
+            self.viewer.sync()
 
     def get_body_jacobian(self, body_id):
         '''
