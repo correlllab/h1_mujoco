@@ -1,6 +1,13 @@
 <mujoco model="h1_2">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
 
+  <!-- sim2real option: impratio=100 prevents contact slipping for stable,
+       non-jerky control during contact-rich tasks (see arXiv 2503.04613).
+       Added 2026-06-05 to match h1_2_pos.xml (this handless model previously
+       defaulted to impratio=1, the slippy setting); also keeps the MJPC
+       planner (Lean_H12.xml, impratio=100) in contact-parity with the twin. -->
+  <option impratio="100"/>
+
   <default>
     <joint damping="10.0" armature="0.1"  frictionloss="0.2" />
     <geom friction="1.0 0.001 0.001"/>
