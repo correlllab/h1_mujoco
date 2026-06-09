@@ -28,10 +28,13 @@ def sim_loop(fixed=False, force_links=None, handless=False):
         else:
             scene_path = "unitree_robots/h1_2/scene.xml"
         mujoco_env = MujocoEnv(scene_path)
-        # Lower the suspension anchor 2.0 -> 1.73 so the robot hangs ~0.27 m lower
-        # (pelvis ~1.07 m, feet ~5 cm above the floor) -> small drop on SPACE-release
-        # instead of the old ~0.32 m fall. (default point was [0,0,2.0].)
-        mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.73]))
+        # Suspension anchor: torso hangs at z = anchor_z - M*g/stiffness, so the
+        # hang height tracks anchor_z 1:1 (independent of mass). Headless-measured
+        # foot-sole vs floor: anchor 1.688 = feet just touching (0 cm), and the
+        # slope is exactly 1:1, so 1.695 puts the feet ~0.5 cm above the floor ->
+        # a near-zero drop on SPACE-release. (was 1.73 ~= 4-5 cm; default [0,0,2.0]
+        # ~= 8 cm. To raise the gap, raise anchor_z by the same cm; lower to lower.)
+        mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.695]))
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
