@@ -79,35 +79,23 @@ def rad_to_mm(rad: float) -> float:
 class MagpieHandBridge(Node):
     """ROS 2 bridge for one simulated magpie hand."""
 
-    # MJCF actuator + sensor names per side.
-    # Right hand uses unprefixed actuator names; left hand uses the `_L`
-    # variants. Sensor names were added in h1_2_magpie_eflesh.xml.
-    _SIDE_NAMES = {
-        "right": {
-            "act_left":  "left_finger_actuator",
-            "act_right": "right_finger_actuator",
-            "pos_left":  "right_hand_left_finger_pos",
-            "pos_right": "right_hand_right_finger_pos",
-            "vel_left":  "right_hand_left_finger_vel",
-            "vel_right": "right_hand_right_finger_vel",
-            "trq_left":  "right_hand_left_finger_torque",
-            "trq_right": "right_hand_right_finger_torque",
-        },
-        "left": {
-            "act_left":  "left_finger_actuator_L",
-            "act_right": "right_finger_actuator_L",
-            "pos_left":  "left_hand_left_finger_pos",
-            "pos_right": "left_hand_right_finger_pos",
-            "vel_left":  "left_hand_left_finger_vel",
-            "vel_right": "left_hand_right_finger_vel",
-            "trq_left":  "left_hand_left_finger_torque",
-            "trq_right": "left_hand_right_finger_torque",
-        },
+    # Both grippers share these internal MJCF actuator/sensor names (the gripper
+    # MJCFs are identical), disambiguated by the gripper0_<side>_ prefix passed
+    # as name_prefix.
+    _NAMES = {
+        "act_left":  "left_finger_actuator",
+        "act_right": "right_finger_actuator",
+        "pos_left":  "left_finger_pos",
+        "pos_right": "right_finger_pos",
+        "vel_left":  "left_finger_vel",
+        "vel_right": "right_finger_vel",
+        "trq_left":  "left_finger_torque",
+        "trq_right": "right_finger_torque",
     }
 
     def __init__(self, model, data, side: str, sim_lock: threading.Lock,
-                 publish_rate_hz: float = 10.0):
-        if side not in self._SIDE_NAMES:
+                 publish_rate_hz: float = 10.0, name_prefix=""):
+        if side not in ("right", "left"):
             raise ValueError(f"side must be 'left' or 'right', got {side!r}")
         super().__init__(f"magpie_hand_{side}")
 
@@ -115,7 +103,7 @@ class MagpieHandBridge(Node):
         self.data = data
         self.sim_lock = sim_lock
         self.side = side
-        names = self._SIDE_NAMES[side]
+        names = {k: name_prefix + v for k, v in self._NAMES.items()}
 
         self.act_left  = self._actuator_id(names["act_left"])
         self.act_right = self._actuator_id(names["act_right"])

@@ -21,32 +21,26 @@ MOTOR_SENSOR_NUM = 3
 DOMAIN_ID = int(os.getenv("ROS_DOMAIN_ID"))
 assert DOMAIN_ID > 0 and isinstance(DOMAIN_ID, int), "Please set ROS_DOMAIN_ID environment variable to a positive value, e.g. export ROS_DOMAIN_ID=1, domain 0 is reserved for the real robot."
 class SimInterface:
-    def __init__(self, model, data, lock=None):
+    def __init__(self, model, data, lock=None, resolver=None):
         # record mujoco model & data
         self.model = model
         self.data = data
+        # sim_names.NameResolver for the robosuite-merged model: joints/actuators/
+        # sensors are renamed + robot0_-prefixed, so state is read from
+        # qpos/qvel, the jointactuatorfrc torque sensors, and the IMU sensors via
+        # name-resolved indices, and ctrl is written by resolved actuator index.
+        if resolver is None:
+            raise ValueError("SimInterface requires a NameResolver")
+        self.resolver = resolver
         # Lock shared with the main sim loop to protect MjData access.
-        # RecurrentThreads read sensordata and write ctrl from background
-        # threads while the main loop calls mj_step — all must hold the
-        # lock while touching data.
+        # RecurrentThreads read state and write ctrl from background threads while
+        # the main loop calls mj_step — all must hold the lock while touching data.
         self._lock = lock or threading.Lock()
 
         # initialize state parameters
         self.num_motor = MOTOR_NUM
-        self.num_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
         self.dt = self.model.opt.timestep
-
-        # check sensor
-        self.have_imu = False
-        self.have_frame_sensor = False
-        for i in range(self.num_motor_sensor, self.model.nsensor):
-            name = mujoco.mj_id2name(
-                self.model, mujoco._enums.mjtObj.mjOBJ_SENSOR, i
-            )
-            if name == 'imu_quat':
-                self.have_imu = True
-            if name == 'frame_pos':
-                self.have_frame_sensor = True
+        self.have_imu = "imu_quat" in resolver.sensor_adr
 
         # initialize channel
         ChannelFactoryInitialize(id=DOMAIN_ID)
@@ -80,75 +74,50 @@ class SimInterface:
         return self._lock
 
     def publish_low_state(self):
-        if self.data is not None:
-            with self._lock:
-                # write tick
-                self.low_state.tick = int(self.data.time / self.dt)
-                # write motor state
-                for i in range(self.num_motor):
-                    self.low_state.motor_state[i].q = self.data.sensordata[i]
-                    self.low_state.motor_state[i].dq = self.data.sensordata[
-                        i + self.num_motor
-                    ]
-                    self.low_state.motor_state[i].tau_est = self.data.sensordata[
-                        i + 2 * self.num_motor
-                    ]
-                if self.have_imu:
-                    # write IMU data
-                    self.low_state.imu_state.quaternion[0] = self.data.sensordata[
-                        self.num_motor_sensor + 0
-                    ]
-                    self.low_state.imu_state.quaternion[1] = self.data.sensordata[
-                        self.num_motor_sensor + 1
-                    ]
-                    self.low_state.imu_state.quaternion[2] = self.data.sensordata[
-                        self.num_motor_sensor + 2
-                    ]
-                    self.low_state.imu_state.quaternion[3] = self.data.sensordata[
-                        self.num_motor_sensor + 3
-                    ]
-                    # write gyroscope data
-                    self.low_state.imu_state.gyroscope[0] = self.data.sensordata[
-                        self.num_motor_sensor + 4
-                    ]
-                    self.low_state.imu_state.gyroscope[1] = self.data.sensordata[
-                        self.num_motor_sensor + 5
-                    ]
-                    self.low_state.imu_state.gyroscope[2] = self.data.sensordata[
-                        self.num_motor_sensor + 6
-                    ]
-                    # write accelerometer data
-                    self.low_state.imu_state.accelerometer[0] = self.data.sensordata[
-                        self.num_motor_sensor + 7
-                    ]
-                    self.low_state.imu_state.accelerometer[1] = self.data.sensordata[
-                        self.num_motor_sensor + 8
-                    ]
-                    self.low_state.imu_state.accelerometer[2] = self.data.sensordata[
-                        self.num_motor_sensor + 9
-                    ]
-            # write to low state (DDS publish is thread-safe, no lock needed)
-            self.low_state_publisher.Write(self.low_state)
+        if self.data is None:
+            return
+        r = self.resolver
+        sd = self.data.sensordata
+        with self._lock:
+            self.low_state.tick = int(self.data.time / self.dt)
+            # q/dq/tau by name-resolved index (robosuite-merged model).
+            # tau_est comes from the <jointactuatorfrc> sensor (clamped to the
+            # joint's actuatorfrcrange), matching the real robot's measured-torque
+            # semantics. Reading data.actuator_force instead would publish the raw,
+            # unclamped PD demand and spuriously trip the safety layer's estop.
+            for i in range(self.num_motor):
+                self.low_state.motor_state[i].q = float(self.data.qpos[r.motor_qpos[i]])
+                self.low_state.motor_state[i].dq = float(self.data.qvel[r.motor_qvel[i]])
+                self.low_state.motor_state[i].tau_est = float(sd[r.motor_tau[i]])
+            if self.have_imu:
+                qa = r.sensor_adr["imu_quat"][0]
+                ga = r.sensor_adr["imu_gyro"][0]
+                aa = r.sensor_adr["imu_acc"][0]
+                for k in range(4):
+                    self.low_state.imu_state.quaternion[k] = float(sd[qa + k])
+                for k in range(3):
+                    self.low_state.imu_state.gyroscope[k] = float(sd[ga + k])
+                for k in range(3):
+                    self.low_state.imu_state.accelerometer[k] = float(sd[aa + k])
+        # write to low state (DDS publish is thread-safe, no lock needed)
+        self.low_state_publisher.Write(self.low_state)
 
     def low_cmd_handler(self, msg: LowCmd_):
-        if self.data is not None:
-            with self._lock:
-                self.last_cmd_time = time.time()
-                # apply control to each motor
-                for i in range(self.num_motor):
-                    if msg.motor_cmd[i].mode == 1:
-                        self.data.ctrl[i] = (
-                            msg.motor_cmd[i].tau
-                            + msg.motor_cmd[i].kp
-                            * (msg.motor_cmd[i].q - self.data.sensordata[i])
-                            + msg.motor_cmd[i].kd
-                            * (
-                                msg.motor_cmd[i].dq
-                                - self.data.sensordata[i + self.num_motor]
-                            )
-                        )
-                    else:
-                        self.data.ctrl[i] = 0.0
+        if self.data is None:
+            return
+        r = self.resolver
+        with self._lock:
+            self.last_cmd_time = time.time()
+            # apply control to each motor (tau + kp*(q*-q) + kd*(dq*-dq))
+            for i in range(self.num_motor):
+                ci = int(r.motor_ctrl[i])
+                q_cur = self.data.qpos[r.motor_qpos[i]]
+                dq_cur = self.data.qvel[r.motor_qvel[i]]
+                mc = msg.motor_cmd[i]
+                if mc.mode == 1:
+                    self.data.ctrl[ci] = mc.tau + mc.kp * (mc.q - q_cur) + mc.kd * (mc.dq - dq_cur)
+                else:
+                    self.data.ctrl[ci] = 0.0
 
     def check_cmd_timeout(self):
         current_time = time.time()
@@ -161,6 +130,6 @@ class SimInterface:
                 # ctrl until a new command resets last_cmd_time.
                 if self.data is not None:
                     with self._lock:
-                        self.data.ctrl[:self.num_motor] = 0.0
+                        self.data.ctrl[self.resolver.motor_ctrl] = 0.0
         else:
             self.timeout_detected = False

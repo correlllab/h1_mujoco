@@ -100,6 +100,7 @@ class RosSensorBridge(Node):
         cam_frame: str = "camera_color_optical_frame",
         lidar_body: str = "livox_link",
         lidar_frame: str = "lidar_link",
+        lidar_exclude_body: str = "torso_link",
         cam_width: int = 1280,
         cam_height: int = 720,
         cam_rate_hz: float = 15.0,
@@ -136,9 +137,9 @@ class RosSensorBridge(Node):
         # would otherwise show as a phantom near-zero return). Limbs hanging
         # off the torso (arms, head, legs) are deliberately NOT in this mask
         # so they occlude the scan like real obstacles.
-        torso_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "torso_link")
+        torso_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, lidar_exclude_body)
         if torso_id < 0:
-            raise RuntimeError("body 'torso_link' not found in MJCF")
+            raise RuntimeError(f"body '{lidar_exclude_body}' not found in MJCF")
         self.lidar_exclude_body_id = int(torso_id)
         self.geom_excluded = (model.geom_bodyid == self.lidar_exclude_body_id)
         # mj_multiRay / mj_ray require a (6, 1) column vector here.
