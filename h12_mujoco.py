@@ -68,7 +68,18 @@ def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0):
             # slope is exactly 1:1, so 1.695 puts the feet ~0.5 cm above the floor ->
             # a near-zero drop on SPACE-release. (was 1.73 ~= 4-5 cm; default [0,0,2.0]
             # ~= 8 cm. To raise the gap, raise anchor_z by the same cm; lower to lower.)
-            mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.695]))
+            # tension_only: a gantry strap pulls, never pushes. With rest length 0 the
+            # strap is ALWAYS taut (1000 N/m x distance-to-anchor -- it hauled a standing
+            # robot up by ~25% bodyweight -> feet lifted, ankle-tau estop, 2026-06-12 run).
+            # Release gesture = pay out rope with '.' (+10cm/press) until GREEN/slack;
+            # tension-only makes the paid-out rope a pure catch instead of a downward shove.
+            # release_fade: SPACE eases the band off over 6s instead of an instant cut.
+            # Run-5 forensics: the strap carried ~560 of 660 N during the "stand" and
+            # SPACE dropped it in one tick -> 80%-bodyweight step -> ankle tau estop.
+            # The PRIMARY release is still '.' payout (keeps the rope as a catch);
+            # the fade just makes a premature SPACE survivable.
+            mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.695]),
+                                         tension_only=True, release_fade=10.0)
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
@@ -147,6 +158,28 @@ def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0):
 
         mujoco_env.sim_step()
         n_steps += 1
+        # strap readout (~1/s): the band's rest length is 0 by default, so it is a
+        # permanently-taut winch unless rope is paid out with '.' -- a taut strap on a
+        # standing robot hauls it up (feet lift, ankle/shoulder estops; 2026-06-12 runs).
+        # Static estimate (damping omitted): tension = k * (dist - rest_length).
+        b = mujoco_env.elastic_band
+        if b is not None and b.enabled and n_steps % 200 == 0:
+            # measure from the pelvis free-joint position -- the SAME point
+            # evaluate_force uses, so the printed N == the applied N
+            d = float(np.linalg.norm(np.asarray(mujoco_env.data.qpos[:3]) - b.point))
+            assist = (f" | tilt-assist {b.last_assist_mag:4.1f} Nm"
+                      if (b.posture_kp > 0 or b.posture_kd > 0) else "")
+            if d < b.length:
+                print(f"[strap] SLACK/GREEN (pure catch -- robot is free){assist}")
+            else:
+                # show the APPLIED tension (fade-scaled) -- during a release the
+                # geometric tension stays high while the applied force ramps to zero
+                tension = (b.stiffness * (d - b.length)
+                           * getattr(b, 'fade_scale', 1.0))
+                fading = ' (FADING)' if b.release_requested else ''
+                need = max(1, int(np.ceil((d - b.length) / 0.1)))
+                print(f"[strap] TAUT hauling ~{tension:4.0f} N{fading} -- "
+                      f"'.' x{need} pays out to slack{assist}")
 
         # # optional: get and display wrench on end-effector
         # force, torque = mujoco_env.get_body_wrench(body_id)

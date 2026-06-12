@@ -102,8 +102,17 @@ class MujocoEnv:
                 if scale <= 0.0:
                     b.enabled = False
                     b.last_assist_mag = 0.0
+                    b.fade_scale = 0.0
                     print('Harness fully released -- robot is free-standing')
                     return
+                # quadratic ease-out: spend most of the fade at LOW support. While the
+                # strap carries weight the planner cannot pre-center the body (its lean
+                # commands fight an invisible rope), so the re-centering happens in the
+                # low-support tail -- a linear fade left only ~1.7s of it (backward
+                # topple exactly at fade end, 2026-06-12); squaring stretches the
+                # under-100N tail to ~40% of the fade time.
+                scale = scale * scale
+            b.fade_scale = scale
             # get x and v of pelvis joint (joint on the hip)
             x = self.data.qpos[:3]
             v = self.data.qvel[:3]
