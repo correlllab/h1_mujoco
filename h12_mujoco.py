@@ -2,13 +2,14 @@ import time
 import argparse
 import numpy as np
 import pyvista as pv
+import mujoco
 
 from mujoco_env import MujocoEnv
 from pv_interface import PVInterface
 from unitree_interface import SimInterface
 
 
-def sim_loop(fixed=False, force_links=None, handless=False):
+def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0):
     """
     Simulating the robot in mujoco.
     Publishing low state and high state.
@@ -28,15 +29,67 @@ def sim_loop(fixed=False, force_links=None, handless=False):
         else:
             scene_path = "unitree_robots/h1_2/scene.xml"
         mujoco_env = MujocoEnv(scene_path)
-        # Suspension anchor: torso hangs at z = anchor_z - M*g/stiffness, so the
-        # hang height tracks anchor_z 1:1 (independent of mass). Headless-measured
-        # foot-sole vs floor: anchor 1.688 = feet just touching (0 cm), and the
-        # slope is exactly 1:1, so 1.695 puts the feet ~0.5 cm above the floor ->
-        # a near-zero drop on SPACE-release. (was 1.73 ~= 4-5 cm; default [0,0,2.0]
-        # ~= 8 cm. To raise the gap, raise anchor_z by the same cm; lower to lower.)
-        mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.695]))
+        if crouch > 0:
+            # ---- bring-up rehearsal: start CROUCHED on the floor, like the real robot's
+            # off-home power-on. Flat feet + upright torso: the pitch angles cancel along
+            # the leg chain (real robot's observed crouch signs: hipP -0.36 knee +0.96 ankP -0.55).
+            k = crouch
+            for hp, kn, an in ((8, 10, 11), (14, 16, 17)):   # L/R hip_pitch, knee, ankle_pitch
+                mujoco_env.data.qpos[hp] = -k / 2
+                mujoco_env.data.qpos[kn] = k
+                mujoco_env.data.qpos[an] = -k / 2
+            mujoco.mj_forward(mujoco_env.model, mujoco_env.data)
+            ankle_ids = [mujoco_env.model.body(n).id
+                         for n in ("left_ankle_roll_link", "right_ankle_roll_link")]
+            low = min(float(mujoco_env.data.xpos[b][2]) for b in ankle_ids)
+            mujoco_env.data.qpos[2] -= (low - 0.047)   # ankle-body height at floor contact (FK calib)
+            mujoco.mj_forward(mujoco_env.model, mujoco_env.data)
+            # Harness, not bungee: TAUT strap anchored above the CROUCHED torso (zero preload --
+            # it auto-slackens as the robot rises, turning GREEN = catch-only) + tilt assist
+            # (the strap-stiffness/steadying-hands part). SPACE after standing = full release.
+            torso0 = np.array(mujoco_env.data.xpos[mujoco_env.model.body("torso_link").id])
+            # assist 300/60 = the PROVEN-STABLE gains (stiffer oscillates/NaNs -- see
+            # mujoco_env note). The rise tilts ~10 deg and the policy recovers to ~4 deg
+            # leaning lightly on the assist; the 3 s release FADE hands that load over
+            # quasi-statically (an instant cut is a ~25 N*m step -- bench: topple in 1.4 s).
+            mujoco_env.init_elastic_band(
+                "torso_link", point=torso0 + np.array([0.0, 0.0, 0.8]), length=0.8,
+                stiffness=3000, damping=300, tension_only=True,
+                posture_kp=300, posture_kd=60, release_fade=3.0)
+            print(f"[crouch rehearsal] start pose: knee=+{k:.2f} hipP/ankP=-{k/2:.2f} "
+                  f"base_z={float(mujoco_env.data.qpos[2]):.3f}")
+            print("[crouch rehearsal] pose FROZEN until the node's first stiff command; "
+                  "harness slackens as it rises (band turns GREEN); SPACE once standing "
+                  "eases the support off over 3s")
+        else:
+            # Suspension anchor: torso hangs at z = anchor_z - M*g/stiffness, so the
+            # hang height tracks anchor_z 1:1 (independent of mass). Headless-measured
+            # foot-sole vs floor: anchor 1.688 = feet just touching (0 cm), and the
+            # slope is exactly 1:1, so 1.695 puts the feet ~0.5 cm above the floor ->
+            # a near-zero drop on SPACE-release. (was 1.73 ~= 4-5 cm; default [0,0,2.0]
+            # ~= 8 cm. To raise the gap, raise anchor_z by the same cm; lower to lower.)
+            mujoco_env.init_elastic_band("torso_link", point=np.array([0.0, 0.0, 1.695]))
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
+
+    # crouch rehearsal: hold the pose (no gravity integration) until the node's first STIFF
+    # command -- limp zero-kp joints would crumple the crouch before the chain is up. The
+    # safety layer's idle 500 Hz publisher sends kp=0 zeros, so gate on kp > 1 via a second
+    # rt/lowcmd reader (DDS allows many; same proven pattern as the headless bench).
+    _stiff = {"kp": 0.0}
+    if crouch > 0 and not fixed:
+        from unitree_sdk2py.core.channel import ChannelSubscriber as _CS
+        from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_ as _LC
+
+        def _kp_sniff(msg):
+            try:
+                kmax = max(m.kp for m in msg.motor_cmd[:27])
+                if kmax > _stiff["kp"]:
+                    _stiff["kp"] = kmax
+            except Exception:
+                pass
+        _sniff_sub = _CS("rt/lowcmd", _LC)
+        _sniff_sub.Init(_kp_sniff, 10)
 
     # initialize external force interface if link names are provided
     if force_links:
@@ -60,6 +113,9 @@ def sim_loop(fixed=False, force_links=None, handless=False):
     # exactly once per iteration, so the sim trajectory is unchanged -- only wall-clock spacing moves.
     sim_t0 = time.time()
     n_steps = 0
+    crouch_frozen = crouch > 0 and not fixed
+    hold_qpos = np.array(mujoco_env.data.qpos).copy()
+    frz_i = 0
     while mujoco_env.viewer.is_running():
         if mujoco_env.paused:
             # keep viewer responsive while paused; rebase the clock so we don't sprint on resume
@@ -68,6 +124,26 @@ def sim_loop(fixed=False, force_links=None, handless=False):
             sim_t0 = time.time()
             n_steps = 0
             continue
+
+        if crouch_frozen:
+            if _stiff["kp"] > 1.0:
+                crouch_frozen = False
+                print(f"[crouch rehearsal] first STIFF command (kp={_stiff['kp']:.0f}) "
+                      "-- physics live, node ramp rising to home")
+                sim_t0 = time.time()
+                n_steps = 0
+            else:
+                mujoco_env.data.qpos[:] = hold_qpos
+                mujoco_env.data.qvel[:] = 0.0
+                # freeze the POSE, not the CLOCK: the lowstate tick must keep advancing or a
+                # node on --use_twin_time plans against a frozen clock and lurches on the jump
+                mujoco_env.data.time += mujoco_env.timestep
+                mujoco.mj_forward(mujoco_env.model, mujoco_env.data)
+                frz_i += 1
+                if frz_i % mujoco_env._render_every == 0:   # throttled draw (software GL is slow)
+                    mujoco_env.viewer.sync()
+                time.sleep(mujoco_env.timestep)
+                continue
 
         mujoco_env.sim_step()
         n_steps += 1
@@ -113,6 +189,15 @@ if __name__ == "__main__":
         default=None,
         help="Enable external force interface for specified link names",
     )
+    parser.add_argument(
+        "--crouch",
+        type=float,
+        default=0.0,
+        help="bring-up rehearsal: start CROUCHED on the floor (knee=+K rad), pose frozen "
+             "until the node engages, taut catch-only harness + tilt assist instead of the "
+             "hang band; SPACE releases the harness once standing. e.g. --crouch 0.7",
+    )
     args = parser.parse_args()
 
-    sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless)
+    sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless,
+             crouch=args.crouch)

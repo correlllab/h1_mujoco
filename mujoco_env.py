@@ -32,11 +32,20 @@ class MujocoEnv:
 
     def init_elastic_band(self, link_name='torso_link',
                           point=np.array([0, 0, 2.0]),
-                          length=0, stiffness=1e3, damping=1e3):
+                          length=0, stiffness=1e3, damping=1e3,
+                          tension_only=False, posture_kp=0.0, posture_kd=0.0,
+                          release_fade=0.0):
         # initialize member variables
-        self.elastic_band = ElasticBand(point, length, stiffness, damping)
+        self.elastic_band = ElasticBand(point, length, stiffness, damping,
+                                        tension_only, posture_kp, posture_kd, release_fade)
         # attach band to model
         self.band_attached_body_id = self.model.body(link_name).id
+        # posture assist acts on the band-attached body (torso). Keep gains MODERATE
+        # (~300/60): stiff gains (1500/200) are explicit-integration UNSTABLE here -- wire
+        # forensics showed kN*m oscillation, NaN explosions + MuJoCo auto-resets, and the
+        # shaking tripped the safety estop 0.7 s after engagement. Hand the load to the
+        # policy with release_fade, not with a stiffer hold.
+        self.posture_body_id = self.band_attached_body_id
 
         # print instructions
         print('Elastic band initialized!')
@@ -83,13 +92,39 @@ class MujocoEnv:
     def eval_elastic_band(self):
         '''Evaluate and apply elastic band force if enabled'''
         if self.elastic_band is not None and self.elastic_band.enabled:
+            b = self.elastic_band
+            # fade-out release: scale all support down over release_fade sim-seconds
+            scale = 1.0
+            if b.release_requested and b.release_fade > 0.0:
+                if b._fade_t0 is None:
+                    b._fade_t0 = self.data.time
+                scale = 1.0 - (self.data.time - b._fade_t0) / b.release_fade
+                if scale <= 0.0:
+                    b.enabled = False
+                    b.last_assist_mag = 0.0
+                    print('Harness fully released -- robot is free-standing')
+                    return
             # get x and v of pelvis joint (joint on the hip)
             x = self.data.qpos[:3]
             v = self.data.qvel[:3]
             # evaluate elastic band force
-            f = self.elastic_band.evaluate_force(x, v)
+            f = b.evaluate_force(x, v)
             # apply force to the band-attached link
-            self.data.xfrc_applied[self.band_attached_body_id, :3] += f
+            self.data.xfrc_applied[self.band_attached_body_id, :3] += scale * f
+            # posture assist (harness mode): a point-force band cannot constrain TILT, so a
+            # supported bring-up swings like a pendulum. When posture gains are set, also apply
+            # a world-frame upright spring + angular damping on the attached body -- the
+            # strap-stiffness / steadying-hands part of a real gantry harness. 0/0 = off.
+            if b.posture_kp > 0.0 or b.posture_kd > 0.0:
+                bid = self.posture_body_id
+                R = self.data.xmat[bid].reshape(3, 3)
+                vel6 = np.zeros(6)   # [angular(3); linear(3)], world frame (flg_local=0)
+                mujoco.mj_objectVelocity(self.model, self.data,
+                                         mujoco.mjtObj.mjOBJ_BODY, bid, vel6, 0)
+                torque = scale * (b.posture_kp * np.cross(R[:, 2], np.array([0.0, 0.0, 1.0]))
+                                  - b.posture_kd * vel6[:3])
+                self.data.xfrc_applied[bid, 3:] += torque
+                b.last_assist_mag = float(np.linalg.norm(torque))
 
     def reset_geom_buffer(self):
         scn = self.viewer.user_scn
@@ -104,7 +139,12 @@ class MujocoEnv:
             scn = self.viewer.user_scn
             anchor = self.elastic_band.point
             body_pos = self.data.xpos[self.band_attached_body_id]
-            color = np.array([0.5, 0.6, 1.0, 0.8])
+            # tension-only harness: GREEN while slack (catch-only, exerting nothing),
+            # blue while taut -- lets the operator SEE the strap release itself.
+            slack = (self.elastic_band.tension_only and
+                     np.linalg.norm(self.data.qpos[:3] - anchor) < self.elastic_band.length)
+            color = (np.array([0.3, 1.0, 0.4, 0.8]) if slack
+                     else np.array([0.5, 0.6, 1.0, 0.8]))
 
             # draw anchor point marker.
             if scn.ngeom < scn.maxgeom:
@@ -296,22 +336,40 @@ class MujocoEnv:
         return world_force, world_torque
 
 class ElasticBand:
-    def __init__(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100):
+    def __init__(self, point=np.array([0, 0, 3]), length=0, stiffness=200, damping=100,
+                 tension_only=False, posture_kp=0.0, posture_kd=0.0, release_fade=0.0):
         self.point = point.astype(np.float64)
         self.length = length
         self.stiffness = stiffness
         self.damping = damping
+        self.tension_only = tension_only   # a strap can PULL toward the anchor, never push
+        self.posture_kp = posture_kp       # upright tilt spring (N*m/rad), applied by MujocoEnv
+        self.posture_kd = posture_kd       # angular damping (N*m*s/rad)
+        # release_fade > 0: releasing EASES the support off over this many sim-seconds instead
+        # of cutting it -- an instant cut hands the policy whatever load the harness was still
+        # carrying as a step disturbance (bench: topple in 1.4 s); a quasi-static fade lets the
+        # planner track the shifting equilibrium. Double-SPACE forces an instant cut.
+        self.release_fade = release_fade
+        self.release_requested = False
+        self._fade_t0 = None
+        self.last_assist_mag = 0.0         # |posture torque| actually applied (N*m) -- the
+                                           # "is the harness still load-bearing?" readout
         self.enabled = True
 
     def evaluate_force(self, x, v):
         # displacement
         displacement = np.linalg.norm(x - self.point)
+        if displacement < 1e-9:
+            return np.zeros(3)
         # direction
         direction = (x - self.point) / displacement
         # tangential velocity
         v_tan = np.dot(v, direction)
-        # spring damper model
-        f = (-self.stiffness * (displacement - self.length) - self.damping * v_tan) * direction
+        # spring damper model (mag < 0 = pull toward anchor = rope tension)
+        mag = -self.stiffness * (displacement - self.length) - self.damping * v_tan
+        if self.tension_only and mag > 0.0:
+            mag = 0.0   # slack (or compressed) rope exerts nothing
+        f = mag * direction
 
         return f
 
@@ -319,11 +377,42 @@ class ElasticBand:
         glfw = mujoco.glfw.glfw
 
         if key == glfw.KEY_SPACE:
+            # harness mode (fade configured): first SPACE eases the support off; a second
+            # SPACE during the fade cuts it instantly (falls through to the toggle below)
+            if self.release_fade > 0.0 and self.enabled and not self.release_requested:
+                self.release_requested = True
+                print(f'Harness release: easing support off over {self.release_fade:.0f}s '
+                      '(SPACE again = instant cut)')
+                return
             self.enabled = not self.enabled
+            if self.enabled:   # re-enable resets a previous fade
+                self.release_requested = False
+                self._fade_t0 = None
             print(f"Elastic band {'enabled' if self.enabled else 'disabled'}")
             return
 
         if not self.enabled:
+            return
+
+        # gantry hoist: raise/lower the anchor like a real winch. Lower the limp robot
+        # until the feet load and the knees fold -> a PHYSICALLY-reached crouch start
+        # (no pose freeze, so the accelerometer stays live/healthy); hoist back up as
+        # the robot rises, just like a real gantry operator. (P was taken by pause.)
+        if key == glfw.KEY_U or key == glfw.KEY_L:
+            self.point[2] += 0.05 if key == glfw.KEY_U else -0.05
+            print(f"Hoist {'raised' if key == glfw.KEY_U else 'lowered'} to "
+                  f"z={self.point[2]:.2f} (U=up L=lower, 5cm/press)")
+            return
+        # steadying-hands tilt assist, for supported bring-up from a hoisted crouch
+        if key == glfw.KEY_T:
+            if self.posture_kp > 0.0 or self.posture_kd > 0.0:
+                self.posture_kp = self.posture_kd = 0.0
+                print('Tilt assist OFF')
+            else:
+                self.posture_kp, self.posture_kd = 300.0, 60.0   # the proven-stable gains
+                if self.release_fade <= 0.0:
+                    self.release_fade = 3.0   # assist may carry load -> SPACE eases off, no step-cut
+                print('Tilt assist ON (300/60 steadying hands) -- SPACE now eases support off over 3s')
             return
 
         if key == glfw.KEY_LEFT:
@@ -341,7 +430,13 @@ class ElasticBand:
 
     def print_instructions(self):
         print('Elastic Band Controls:')
-        print('  SPACE - Toggle elastic band on/off')
+        print('  SPACE - Toggle elastic band on/off (eases off over 3s when tilt assist is on)')
+        print('  U / L - Hoist anchor Up / Lower (5cm per press) -- gantry-style crouch start:')
+        print('          lower the limp robot until the knees bend (~0.7 rad), then press U')
+        print('          once or twice to take up slack and HOLD it there (a limp robot keeps')
+        print('          folding to the knee hard stop, and a joint AT its limit trips the')
+        print('          safety estop = un-engageable). Engage, then hoist up as it rises.')
+        print('  T - Toggle steadying tilt assist (use for bring-up from a hoisted crouch)')
         print('  Arrow Keys - Move band anchor point (←→ for X, ↑↓ for Y)')
         print('  , / . - Decrease/increase band rest length')
 
