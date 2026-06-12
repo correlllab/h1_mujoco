@@ -48,9 +48,10 @@ LEG_JOINT_RENAME = {
 # Free joint name on the pelvis (used by the placement patch).
 FREE_JOINT_NAME = "floating_base_joint"
 
-# Nominal standing stance for the 27 actuated joints (excludes the 7-DoF free
-# joint). Model-level init stays zeros; the harness overrides with NOMINAL_STANCE
-# after reset (see nominal_stance_vector).
+# Initial stance for the 27 actuated joints (excludes the 7-DoF free joint).
+# Model-level init stays zeros, and the harness spawns at zeros too
+# (h12_mujoco.sim_loop). NOMINAL_STANCE / nominal_stance_vector below stay
+# available for an upright standing spawn but are not the default.
 _INIT_QPOS = np.zeros(27)
 
 # Nominal standing stance, keyed by ROS joint name. Legs are the walking policy's
@@ -70,7 +71,9 @@ NOMINAL_STANCE = {
 
 def nominal_stance_vector():
     """The 27-vector of NOMINAL_STANCE angles ordered by sim_names.ROS_MOTOR_ORDER
-    (== NameResolver.motor_qpos order), for writing qpos in the harness reset."""
+    (== NameResolver.motor_qpos order). Not used by the default all-zero spawn;
+    write data.qpos[resolver.motor_qpos] = nominal_stance_vector() for a standing
+    pose."""
     from sim_names import ROS_MOTOR_ORDER
 
     return np.array([NOMINAL_STANCE.get(n, 0.0) for n in ROS_MOTOR_ORDER], dtype=float)
@@ -250,6 +253,78 @@ def place_robot_clear(env, pos, quat_wxyz, clearance=0.02):
         start = addr[0] if isinstance(addr, tuple) else addr
         sim.data.qpos[start + 2] += clearance - low
         sim.forward()
+
+
+def _backward_dir(base_quat):
+    """World-frame unit vector pointing 'backward' for a robot at orientation
+    base_quat (wxyz). The robot faces +x in its own frame (toward the kitchen
+    counter), so backward = -(local +x) rotated into the world, flattened to the
+    floor plane and normalized. Falls back to -x if the rotated axis is vertical."""
+    import mujoco
+
+    fwd = np.zeros(3)
+    mujoco.mju_rotVecQuat(fwd, np.array([1.0, 0.0, 0.0]), np.asarray(base_quat, dtype=float))
+    back = -fwd
+    back[2] = 0.0
+    n = np.linalg.norm(back)
+    return back / n if n > 1e-9 else np.array([-1.0, 0.0, 0.0])
+
+
+def _robot_env_contacts(model, data, prefixes=("robot0_", "gripper0_")):
+    """Penetrating contacts between a robot geom and a non-robot (environment)
+    geom. 'Penetrating' = contact.dist < 0 (actual overlap, not merely within
+    margin). Robot-vs-robot (self) and env-vs-env contacts are skipped — moving
+    the base can't fix a self-collision. The floor is excluded implicitly:
+    place_robot_clear keeps the robot above it, so it never penetrates."""
+    import mujoco
+
+    out = []
+    for i in range(data.ncon):
+        c = data.contact[i]
+        if c.dist >= 0:
+            continue
+        b1 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, model.geom_bodyid[c.geom1]) or ""
+        b2 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, model.geom_bodyid[c.geom2]) or ""
+        if b1.startswith(prefixes) == b2.startswith(prefixes):
+            continue  # both robot or both env -> not a robot<->env collision
+        out.append(c)
+    return out
+
+
+def place_robot_collision_free(env, base_pos, base_quat, step=0.02, max_iters=25, clearance=0.02):
+    """Place the robot collision-free at spawn by backing it away from whatever it
+    overlaps.
+
+    Starting from the RoboCasa placement (base_pos, base_quat wxyz), place the
+    robot (place_robot_clear auto-fits floor clearance), then while any robot geom
+    penetrates an environment geom, step the base backward (the robot's -x, away
+    from the counter it faces) by `step` and retry, up to `max_iters` steps
+    (default 25 x 2 cm = 0.5 m). Orientation never changes — pure translation.
+
+    Tracks the least-penetrating position seen (fewest contacts, then least total
+    depth). If still colliding after max_iters, restores that best position and
+    warns (best-effort), so the sim still launches. Self-collisions at the zero
+    pose are not addressed here — translation can't fix them."""
+    back = _backward_dir(base_quat)
+    model = env.sim.model._model
+    data = env.sim.data._data
+    pos = np.array(base_pos, dtype=float)
+    best_pos, best_score = None, None
+    for i in range(max_iters + 1):
+        place_robot_clear(env, pos, base_quat, clearance)  # writes pose + z-fit + sim.forward()
+        contacts = _robot_env_contacts(model, data)
+        score = (len(contacts), sum(-c.dist for c in contacts))
+        if best_score is None or score < best_score:
+            best_score, best_pos = score, pos.copy()
+        if not contacts:
+            if i:
+                print(f"[h1_2_robosuite] moved robot back {i * step:.2f} m to clear spawn collision")
+            return
+        pos[:2] += step * back[:2]
+    place_robot_clear(env, best_pos, base_quat, clearance)  # restore least-penetrating try
+    print(f"[h1_2_robosuite] WARNING: spawn still in collision after backing off "
+          f"{max_iters * step:.2f} m; keeping best position "
+          f"({best_score[0]} contact(s), {best_score[1]:.3f} m penetration)")
 
 
 _PATCHED = False

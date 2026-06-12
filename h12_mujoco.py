@@ -70,14 +70,17 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
     resolver = NameResolver(model)  # ROS<->sim name map for the DDS / sensor bridges
 
     # Clean, contact-free initial state. RoboCasa's zero-action settling loop
-    # perturbs the pose during reset, so reset the 27 body joints to the nominal
-    # standing stance (bent-knee legs from the walking policy + tucked arms so the
-    # hands clear the counter), zero all velocities, and re-place the pelvis with
-    # auto-fit floor clearance (feet start just above the floor, no penetration).
+    # perturbs the pose during reset, so reset every actuated joint to 0 (all-zero
+    # spawn pose), zero all velocities, and re-place the pelvis. At the zero pose
+    # the arms jut forward and can overlap the counter, so place_robot_collision_free
+    # auto-fits floor clearance AND backs the base away (the robot's -x) until no
+    # robot geom penetrates a fixture, keeping the least-penetrating spot if it
+    # can't fully clear. For an upright standing spawn instead, write
+    # h1_2_robosuite.nominal_stance_vector() to the motor qpos here.
     try:
-        data.qpos[resolver.motor_qpos] = h1_2_robosuite.nominal_stance_vector()
+        data.qpos[resolver.motor_qpos] = 0.0
         data.qvel[:] = 0.0
-        h1_2_robosuite.place_robot_clear(
+        h1_2_robosuite.place_robot_collision_free(
             env, env.init_robot_base_pos,
             h1_2_robosuite._euler_to_wxyz(getattr(env, "init_robot_base_ori", None)),
         )
@@ -159,6 +162,8 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
         if viewer and band is not None
         else (mujoco.viewer.launch_passive(model, data) if viewer else None)
     )
+    if handle is not None:
+        handle.opt.geomgroup[0] = 0   # hide collision geoms by default
     try:
         while True:
             start_time = time.time()
@@ -195,18 +200,75 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
         shutdown_ros()
 
 
-def _random_task(seed=None):
-    """Pick a random registered RoboCasa kitchen env name."""
+def _runnable_tasks():
+    """Return (env_classes, runnable).
+
+    `env_classes` maps every robosuite-registered env name -> its class. This is
+    the same REGISTERED_ENVS that robosuite.make() resolves against, and it DOES
+    include RoboCasa's abstract bases (OpenDoor/CloseDoor/ManipulateDoor/
+    PickPlace) — RoboCasa's metaclass deliberately omits those five from its own
+    REGISTERED_KITCHEN_ENVS, but the robosuite parent metaclass still registers
+    them. We need them here so an abstract base name can be looked up and expanded
+    to its concrete subclasses.
+
+    `runnable` is the set of concrete benchmark task names from RoboCasa's curated
+    ATOMIC_/COMPOSITE_TASK_DATASETS (intersected with what's registered, to
+    tolerate version skew). Those bases can't be instantiated directly — they
+    require a `fixture_id` only a concrete subclass supplies — so they are never
+    in `runnable`. Falls back to REGISTERED_KITCHEN_ENVS (which already excludes
+    the five bases) if the curated lists are unavailable.
+    """
     import robocasa  # noqa: F401  -> registers all kitchen envs on import
+    from robosuite.environments.base import REGISTERED_ENVS
+    env_classes = dict(REGISTERED_ENVS)
     try:
-        from robocasa.environments import ALL_KITCHEN_ENVIRONMENTS as envs
-        names = list(envs)
+        from robocasa.utils.dataset_registry import (
+            ATOMIC_TASK_DATASETS,
+            COMPOSITE_TASK_DATASETS,
+        )
+        runnable = (set(ATOMIC_TASK_DATASETS) | set(COMPOSITE_TASK_DATASETS)) & set(env_classes)
     except Exception:
         from robocasa.environments.kitchen.kitchen import REGISTERED_KITCHEN_ENVS
-        names = list(REGISTERED_KITCHEN_ENVS)
+        runnable = set(REGISTERED_KITCHEN_ENVS) & set(env_classes)
+    return env_classes, runnable
+
+
+def _random_task(seed=None):
+    """Pick a random *runnable* (concrete) RoboCasa kitchen env name."""
+    _, runnable = _runnable_tasks()
     if seed is not None:
         random.seed(seed)
-    return random.choice(sorted(names))
+    return random.choice(sorted(runnable))
+
+
+def _resolve_task(name, seed=None):
+    """Resolve a user-supplied --task name to a concrete runnable task.
+
+    If `name` is already a concrete benchmark task, return it unchanged. If it's
+    an abstract base (e.g. OpenDoor, ManipulateDoor) — registered but not directly
+    instantiable — randomly pick one of its concrete runnable subclasses instead
+    of crashing.
+    """
+    env_classes, runnable = _runnable_tasks()
+    if name in runnable:
+        return name
+    if name not in env_classes:
+        raise SystemExit(f"[h12_mujoco] unknown RoboCasa task {name!r}")
+    base = env_classes[name]
+    concrete = sorted(
+        n for n in runnable
+        if isinstance(env_classes.get(n), type)
+        and issubclass(env_classes[n], base) and env_classes[n] is not base
+    )
+    if not concrete:
+        raise SystemExit(f"[h12_mujoco] {name!r} is abstract with no runnable concrete tasks")
+    if seed is not None:
+        random.seed(seed)
+    choice = random.choice(concrete)
+    print(f"[h12_mujoco] {name!r} is an abstract task base; "
+          f"randomly selected concrete subclass {choice!r} "
+          f"(from {len(concrete)} options)")
+    return choice
 
 
 if __name__ == "__main__":
@@ -231,6 +293,8 @@ if __name__ == "__main__":
     if task is None:
         task = _random_task(seed=args.seed)
         print(f"[h12_mujoco] no --task given; randomly selected {task!r}")
+    else:
+        task = _resolve_task(task, seed=args.seed)
 
     sim_loop(task, viewer=not args.headless,
              layout=args.layout, style=args.style, seed=args.seed)
