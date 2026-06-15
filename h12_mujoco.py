@@ -101,7 +101,7 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
             f"{env.robots[0].robot_model.naming_prefix}{h1_2_robosuite.FREE_JOINT_NAME}")
         base_dof = int(model.jnt_dofadr[fj])
         anchor = data.xpos[band_body_id].copy()
-        anchor[2] += 0.6
+        anchor[2] += 0.01
         band = ElasticBand(anchor, length=0, stiffness=1e3, damping=1e3)
         print(f"[h12_mujoco] elastic band on torso anchored at {anchor.round(3)}")
     except Exception as e:
@@ -123,11 +123,18 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
 
     init_ros()
 
-    # Sensor bridge: /clock, head RGBD, livox lidar + IMU. Pass robosuite-prefixed
-    # MuJoCo lookup names; ROS-facing frame_ids stay unprefixed (ctor defaults).
+    # Sensor bridge: /clock, RGBD cameras (head + both hands), livox lidar + IMU.
+    # Pass robosuite-prefixed MuJoCo lookup names; ROS-facing frame_ids stay
+    # unprefixed (ctor defaults). cameras: (mujoco name, /realsense/<ns>, frame_id).
+    # Head rides the robot prefix; the eye-in-hand gripper cameras ride the gripper
+    # prefixes (same as the hand bridges below).
     ros_bridge = RosSensorBridge(
         model, data,
-        cam_name=f"{pfx}head_cam",
+        cameras=[
+            (f"{pfx}head_cam",          "head",       "camera_color_optical_frame"),
+            ("gripper0_left_hand_cam",  "left_hand",  "left_hand_camera_color_optical_frame"),
+            ("gripper0_right_hand_cam", "right_hand", "right_hand_camera_color_optical_frame"),
+        ],
         lidar_body=f"{pfx}livox_link",
         lidar_exclude_body=f"{pfx}torso_link",
         imu_quat_sensor=f"{pfx}livox_imu_quat",
@@ -153,8 +160,9 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
         executor.add_node(node)
     executor_thread = threading.Thread(target=executor.spin, daemon=True, name="ros_bridge_exec")
     executor_thread.start()
-    print("[h12_mujoco] ROS bridges up: rt/lowstate+rt/lowcmd, /clock, head RGBD, "
-          "livox lidar+imu, /gripper/{left,right}/*, /elastic_band/toggle")
+    print("[h12_mujoco] ROS bridges up: rt/lowstate+rt/lowcmd, /clock, "
+          "RGBD /realsense/{head,left_hand,right_hand}, livox lidar+imu, "
+          "/gripper/{left,right}/*, /elastic_band/toggle")
 
     # SPACE in the viewer toggles the band (ElasticBand.key_callback).
     handle = (

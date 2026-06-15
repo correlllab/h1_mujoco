@@ -1,6 +1,10 @@
-"""ROS 2 publishers for MuJoCo head RGBD camera + downward half-sphere lidar.
+"""ROS 2 publishers for MuJoCo RGBD cameras + downward half-sphere lidar.
 
-Topics published (frame IDs match URDF link names):
+One RGBD camera set is published per configured camera under
+/realsense/<namespace>/* — by default the head camera, plus the two eye-in-hand
+gripper cameras (namespaces head, left_hand, right_hand). Topics published
+(shown for `head`; left_hand/right_hand mirror the same five topics; frame IDs
+match URDF link names):
   /clock                                                        rosgraph_msgs/Clock (sim time)
   /realsense/head/color/image_raw                               sensor_msgs/Image (rgb8)
   /realsense/head/color/image_raw/compressed                    sensor_msgs/CompressedImage (jpeg)
@@ -21,6 +25,7 @@ import io
 import os
 import struct
 from array import array as _array
+from collections import namedtuple
 
 import mujoco
 import numpy as np
@@ -74,6 +79,15 @@ PC2_FIELDS = [
 ]
 
 
+# One render target + its five RealSense-style publishers. All cameras share the
+# bridge's renderer/resolution/rate; each carries its own MuJoCo camera name,
+# header frame_id, intrinsics, and /realsense/<namespace>/* publishers.
+_CameraPub = namedtuple(
+    "_CameraPub",
+    "name frame cam_id info_msg pub_rgb pub_depth pub_rgb_raw pub_depth_raw pub_info",
+)
+
+
 def _build_camera_info(width: int, height: int, fovy_deg: float, frame_id: str) -> CameraInfo:
     fy = (height / 2.0) / np.tan(np.deg2rad(fovy_deg) / 2.0)
     fx = fy
@@ -96,8 +110,7 @@ class RosSensorBridge(Node):
         self,
         model,
         data,
-        cam_name: str = "head_cam",
-        cam_frame: str = "camera_color_optical_frame",
+        cameras=None,
         lidar_body: str = "livox_link",
         lidar_frame: str = "lidar_link",
         lidar_exclude_body: str = "torso_link",
@@ -122,13 +135,14 @@ class RosSensorBridge(Node):
         self.elastic_band = elastic_band
         self.sim_lock = sim_lock
 
-        self.cam_name = cam_name
-        self.cam_frame = cam_frame
         self.lidar_frame = lidar_frame
 
-        self.cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, cam_name)
-        if self.cam_id < 0:
-            raise RuntimeError(f"camera '{cam_name}' not found in MJCF")
+        # cameras: list of (mujoco_cam_name, ros_namespace, frame_id). Each entry
+        # publishes the full RealSense topic set under /realsense/<namespace>/*.
+        if cameras is None:
+            cameras = [("head_cam", "head", "camera_color_optical_frame")]
+        self._camera_specs = cameras
+
         self.lidar_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, lidar_body)
         if self.lidar_body_id < 0:
             raise RuntimeError(f"body '{lidar_body}' not found in MJCF")
@@ -148,14 +162,10 @@ class RosSensorBridge(Node):
         self.cam_width = cam_width
         self.cam_height = cam_height
         self.cam_period = 1.0 / cam_rate_hz
-        fovy = float(model.cam_fovy[self.cam_id])
         # Far-plane distance in world units. MuJoCo's depth buffer reports
         # zfar for rays that miss; mask those pixels to "no return" so
         # consumers don't treat the far plane as a real surface.
         self.zfar = float(model.vis.map.zfar * model.stat.extent)
-
-
-        self.cam_info_msg = _build_camera_info(cam_width, cam_height, fovy, cam_frame)
 
         self.lidar_period = 1.0 / lidar_rate_hz
         self.lidar_max_range = lidar_max_range
@@ -189,16 +199,30 @@ class RosSensorBridge(Node):
         # /clock stays on default reliable QoS so subscribers don't drop ticks.
         self.pub_clock = self.create_publisher(Clock, "/clock", 10)
 
-        self.pub_rgb = self.create_publisher(
-            CompressedImage, "/realsense/head/color/image_raw/compressed", qos_profile_sensor_data)
-        self.pub_depth = self.create_publisher(
-            CompressedImage, "/realsense/head/aligned_depth_to_color/image_raw/compressedDepth", qos_profile_sensor_data)
-        self.pub_rgb_raw = self.create_publisher(
-            Image, "/realsense/head/color/image_raw", qos_profile_sensor_data)
-        self.pub_depth_raw = self.create_publisher(
-            Image, "/realsense/head/aligned_depth_to_color/image_raw", qos_profile_sensor_data)
-        self.pub_info = self.create_publisher(
-            CameraInfo, "/realsense/head/color/camera_info", qos_profile_sensor_data)
+        # Build one _CameraPub per requested camera. Intrinsics (fovy) are read
+        # from each camera's own MJCF definition; resolution/rate are shared.
+        self.cameras = []
+        for mj_name, ns, frame in self._camera_specs:
+            cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, mj_name)
+            if cam_id < 0:
+                raise RuntimeError(f"camera '{mj_name}' not found in MJCF")
+            fovy = float(model.cam_fovy[cam_id])
+            self.cameras.append(_CameraPub(
+                name=mj_name,
+                frame=frame,
+                cam_id=cam_id,
+                info_msg=_build_camera_info(cam_width, cam_height, fovy, frame),
+                pub_rgb=self.create_publisher(
+                    CompressedImage, f"/realsense/{ns}/color/image_raw/compressed", qos_profile_sensor_data),
+                pub_depth=self.create_publisher(
+                    CompressedImage, f"/realsense/{ns}/aligned_depth_to_color/image_raw/compressedDepth", qos_profile_sensor_data),
+                pub_rgb_raw=self.create_publisher(
+                    Image, f"/realsense/{ns}/color/image_raw", qos_profile_sensor_data),
+                pub_depth_raw=self.create_publisher(
+                    Image, f"/realsense/{ns}/aligned_depth_to_color/image_raw", qos_profile_sensor_data),
+                pub_info=self.create_publisher(
+                    CameraInfo, f"/realsense/{ns}/color/camera_info", qos_profile_sensor_data),
+            ))
         # FAST-LIO subscribes to /livox/lidar (CustomMsg) and /livox/imu (Imu)
         # with RELIABLE QoS (laserMapping.cpp:923,929). Match it so DDS doesn't
         # drop scans on a QoS mismatch.
@@ -334,78 +358,88 @@ class RosSensorBridge(Node):
             self._scene_opt.geomgroup[:] = 0
             self._scene_opt.geomgroup[1] = 1
             self._scene_opt.geomgroup[2] = 1
+            # Hide all site markers from camera output. Sites are non-physical
+            # debug markers (camera/lidar mounts, robosuite's required grip_site
+            # at the grasp center, etc.); a hand camera looking down the gripper
+            # axis stares straight at grip_site, whose semi-transparent geom is
+            # faint in RGB but writes a solid blob into the depth image.
+            self._scene_opt.sitegroup[:] = 0
         r = self._renderer
 
-        r.disable_depth_rendering()
-        r.update_scene(self.data, camera=self.cam_name, scene_option=self._scene_opt)
-        rgb_u8 = np.ascontiguousarray(r.render(), dtype=np.uint8)
+        # Render every camera through the shared renderer (one render context,
+        # selected per camera by name). All share resolution/rate; each publishes
+        # to its own /realsense/<namespace>/* topics with its own frame_id.
+        for cam in self.cameras:
+            r.disable_depth_rendering()
+            r.update_scene(self.data, camera=cam.name, scene_option=self._scene_opt)
+            rgb_u8 = np.ascontiguousarray(r.render(), dtype=np.uint8)
 
-        rgb_jpeg = io.BytesIO()
-        PILImage.fromarray(rgb_u8, mode="RGB").save(rgb_jpeg, format="JPEG", quality=80)
-        rgb_msg = CompressedImage()
-        rgb_msg.header.stamp = stamp
-        rgb_msg.header.frame_id = self.cam_frame
-        rgb_msg.format = "jpeg"
-        # Wrap byte payloads in array.array('B', …) — rclpy's auto-generated
-        # message setters validate the data field element-by-element when fed
-        # raw bytes (one isinstance check per byte → ~17 ms/frame at 320×240
-        # RGB+depth). array.array('B') tells the binding "uint8 array, no
-        # validation needed" and the setter copies in O(N) C.
-        rgb_msg.data = _array("B", rgb_jpeg.getvalue())
-        self.pub_rgb.publish(rgb_msg)
+            rgb_jpeg = io.BytesIO()
+            PILImage.fromarray(rgb_u8, mode="RGB").save(rgb_jpeg, format="JPEG", quality=80)
+            rgb_msg = CompressedImage()
+            rgb_msg.header.stamp = stamp
+            rgb_msg.header.frame_id = cam.frame
+            rgb_msg.format = "jpeg"
+            # Wrap byte payloads in array.array('B', …) — rclpy's auto-generated
+            # message setters validate the data field element-by-element when fed
+            # raw bytes (one isinstance check per byte → ~17 ms/frame at 320×240
+            # RGB+depth). array.array('B') tells the binding "uint8 array, no
+            # validation needed" and the setter copies in O(N) C.
+            rgb_msg.data = _array("B", rgb_jpeg.getvalue())
+            cam.pub_rgb.publish(rgb_msg)
 
-        rgb_raw = Image()
-        rgb_raw.header.stamp = stamp
-        rgb_raw.header.frame_id = self.cam_frame
-        rgb_raw.height = self.cam_height
-        rgb_raw.width = self.cam_width
-        rgb_raw.encoding = "rgb8"
-        rgb_raw.is_bigendian = 0
-        rgb_raw.step = self.cam_width * 3
-        rgb_raw.data = _array("B", rgb_u8.tobytes())
-        self.pub_rgb_raw.publish(rgb_raw)
+            rgb_raw = Image()
+            rgb_raw.header.stamp = stamp
+            rgb_raw.header.frame_id = cam.frame
+            rgb_raw.height = self.cam_height
+            rgb_raw.width = self.cam_width
+            rgb_raw.encoding = "rgb8"
+            rgb_raw.is_bigendian = 0
+            rgb_raw.step = self.cam_width * 3
+            rgb_raw.data = _array("B", rgb_u8.tobytes())
+            cam.pub_rgb_raw.publish(rgb_raw)
 
-        r.enable_depth_rendering()
-        r.update_scene(self.data, camera=self.cam_name, scene_option=self._scene_opt)
-        depth = r.render()
+            r.enable_depth_rendering()
+            r.update_scene(self.data, camera=cam.name, scene_option=self._scene_opt)
+            depth = r.render()
 
-        # Mask "no hit" pixels (far-plane sentinel + non-finite/<=0) to 0
-        # before quantizing to mm. RealSense uses 0 as the invalid value
-        # in 16UC1 aligned-depth-to-color, which compressed_depth honors.
-        invalid = ~np.isfinite(depth) | (depth <= 0) | (depth >= 0.999 * self.zfar)
-        depth_mm = np.clip(depth * 1000.0, 0, 65535).astype(np.uint16)
-        depth_mm[invalid] = 0
+            # Mask "no hit" pixels (far-plane sentinel + non-finite/<=0) to 0
+            # before quantizing to mm. RealSense uses 0 as the invalid value
+            # in 16UC1 aligned-depth-to-color, which compressed_depth honors.
+            invalid = ~np.isfinite(depth) | (depth <= 0) | (depth >= 0.999 * self.zfar)
+            depth_mm = np.clip(depth * 1000.0, 0, 65535).astype(np.uint16)
+            depth_mm[invalid] = 0
 
-        # 16UC1 mm → PNG → compressedDepth (12-byte ConfigHeader + PNG).
-        # RealSense publishes aligned_depth_to_color in 16UC1 mm, so this
-        # matches their format exactly; image_transport's compressed_depth
-        # plugin decodes it directly.
-        depth_png = io.BytesIO()
-        PILImage.fromarray(depth_mm, mode="I;16").save(depth_png, format="PNG")
-        # ConfigHeader: compressionFormat (uint32, 0=PNG), depthQuantA (f32), depthQuantB (f32).
-        # 16UC1 uses raw PNG with no quantization, so A=B=0.
-        depth_header = struct.pack("<Iff", 0, 0.0, 0.0)
-        depth_msg = CompressedImage()
-        depth_msg.header.stamp = stamp
-        depth_msg.header.frame_id = self.cam_frame
-        depth_msg.format = "16UC1; compressedDepth"
-        depth_msg.data = _array("B", depth_header + depth_png.getvalue())
-        self.pub_depth.publish(depth_msg)
+            # 16UC1 mm → PNG → compressedDepth (12-byte ConfigHeader + PNG).
+            # RealSense publishes aligned_depth_to_color in 16UC1 mm, so this
+            # matches their format exactly; image_transport's compressed_depth
+            # plugin decodes it directly.
+            depth_png = io.BytesIO()
+            PILImage.fromarray(depth_mm, mode="I;16").save(depth_png, format="PNG")
+            # ConfigHeader: compressionFormat (uint32, 0=PNG), depthQuantA (f32), depthQuantB (f32).
+            # 16UC1 uses raw PNG with no quantization, so A=B=0.
+            depth_header = struct.pack("<Iff", 0, 0.0, 0.0)
+            depth_msg = CompressedImage()
+            depth_msg.header.stamp = stamp
+            depth_msg.header.frame_id = cam.frame
+            depth_msg.format = "16UC1; compressedDepth"
+            depth_msg.data = _array("B", depth_header + depth_png.getvalue())
+            cam.pub_depth.publish(depth_msg)
 
-        depth_raw = Image()
-        depth_raw.header.stamp = stamp
-        depth_raw.header.frame_id = self.cam_frame
-        depth_raw.height = self.cam_height
-        depth_raw.width = self.cam_width
-        depth_raw.encoding = "16UC1"
-        depth_raw.is_bigendian = 0
-        depth_raw.step = self.cam_width * 2
-        depth_raw.data = _array("B", np.ascontiguousarray(depth_mm).tobytes())
-        self.pub_depth_raw.publish(depth_raw)
+            depth_raw = Image()
+            depth_raw.header.stamp = stamp
+            depth_raw.header.frame_id = cam.frame
+            depth_raw.height = self.cam_height
+            depth_raw.width = self.cam_width
+            depth_raw.encoding = "16UC1"
+            depth_raw.is_bigendian = 0
+            depth_raw.step = self.cam_width * 2
+            depth_raw.data = _array("B", np.ascontiguousarray(depth_mm).tobytes())
+            cam.pub_depth_raw.publish(depth_raw)
 
-        info = self.cam_info_msg
-        info.header.stamp = stamp
-        self.pub_info.publish(info)
+            info = cam.info_msg
+            info.header.stamp = stamp
+            cam.pub_info.publish(info)
 
     def _publish_lidar_scan(self, stamp: TimeMsg) -> None:
         origin = np.ascontiguousarray(self.data.xpos[self.lidar_body_id], dtype=np.float64).reshape(3, 1)
