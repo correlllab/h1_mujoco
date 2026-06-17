@@ -135,6 +135,12 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
             ("gripper0_left_hand_cam",  "left_hand",  "left_hand_camera_color_optical_frame"),
             ("gripper0_right_hand_cam", "right_hand", "right_hand_camera_color_optical_frame"),
         ],
+        cam_width=256, cam_height=256,   # all 3 cameras render at 256x256 (RoboCasa default)
+        # MID-360 fidelity: 360x56 @ 10Hz ~= 201k pts/s (real ~200k), 0.1m near /
+        # 40m far range, per-point offset_time for FAST-LIO deskew. el_rays/rate
+        # are the knobs to dial back if the ray cast (main thread) hurts RTF.
+        lidar_az_rays=360, lidar_el_rays=56,
+        lidar_rate_hz=10.0, lidar_max_range=40.0, lidar_min_range=0.1,
         lidar_body=f"{pfx}livox_link",
         lidar_exclude_body=f"{pfx}torso_link",
         imu_quat_sensor=f"{pfx}livox_imu_quat",

@@ -121,6 +121,7 @@ class RosSensorBridge(Node):
         lidar_el_rays: int = 28,
         lidar_rate_hz: float = 5.0,
         lidar_max_range: float = 30.0,
+        lidar_min_range: float = 0.1,
         imu_quat_sensor: str = "livox_imu_quat",
         imu_gyro_sensor: str = "livox_imu_gyro",
         imu_acc_sensor: str = "livox_imu_acc",
@@ -169,6 +170,7 @@ class RosSensorBridge(Node):
 
         self.lidar_period = 1.0 / lidar_rate_hz
         self.lidar_max_range = lidar_max_range
+        self.lidar_min_range = lidar_min_range
         # Livox MID-360 FOV in WORLD coordinates is el ∈ [-7°, +52°] (mostly
         # above horizon). The sensor is mounted upside-down in the MJCF, so
         # local +Z = world -Z; flipping signs gives a LOCAL elevation range
@@ -190,6 +192,16 @@ class RosSensorBridge(Node):
         # mod 6 to a line number so FAST-LIO's N_SCANS=6 filter accepts all
         # points evenly distributed across scans.
         self.lidar_lines = ((np.arange(self.lidar_rays) // lidar_az_rays) % 6).astype(np.uint8)
+        # Per-point acquisition time within a scan: model a constant-angular-
+        # velocity azimuth sweep (rotary approximation — all elevations at a
+        # given azimuth fire together), so offset_time depends only on the
+        # azimuth index. The grid above is elevation-major / azimuth-fast, so
+        # ray i has azimuth index (i % lidar_az_rays). FAST-LIO's AVIA path
+        # reads CustomPoint.offset_time [ns] and divides by 1e6 → per-point
+        # time [ms] for motion deskew. Span = one scan period (1 / rate).
+        az_idx = np.arange(self.lidar_rays) % lidar_az_rays
+        self.lidar_offset_time_ns = (
+            (az_idx / lidar_az_rays) * self.lidar_period * 1e9).astype(np.uint32)
         # Preallocated mj_multiRay output buffers (overwritten each tick).
         # mujoco 3.3.1's pybind binding requires column-vector shapes
         # (m, 1) for the geomid / dist / vec / pnt / geomgroup args.
@@ -470,9 +482,10 @@ class RosSensorBridge(Node):
         hit_dists = dists.ravel()
 
         # Points in lidar-local frame: local_dir * distance.
-        valid = (hit_dists >= 0.0) & (hit_dists <= self.lidar_max_range)
+        valid = (hit_dists >= self.lidar_min_range) & (hit_dists <= self.lidar_max_range)
         pts = (self.lidar_local_dirs[valid] * hit_dists[valid, np.newaxis]).astype(np.float32)
         lines = self.lidar_lines[valid]
+        offs = self.lidar_offset_time_ns[valid]
 
         msg = CustomMsg()
         msg.header.stamp = stamp
@@ -483,7 +496,7 @@ class RosSensorBridge(Node):
         msg.rsvd = [0, 0, 0]
         msg.points = [
             CustomPoint(
-                offset_time=0,
+                offset_time=int(offs[i]),
                 x=float(pts[i, 0]), y=float(pts[i, 1]), z=float(pts[i, 2]),
                 reflectivity=0, tag=0, line=int(lines[i]),
             )
@@ -492,14 +505,16 @@ class RosSensorBridge(Node):
         self.pub_lidar.publish(msg)
 
         # Parallel sensor_msgs/PointCloud2 on /livox/pointcloud — same scan,
-        # same stamp/frame, driver-native field layout. intensity/tag/timestamp
-        # stay zero (sim has no reflectivity or per-point time, matching the
-        # CustomMsg's reflectivity=0 / offset_time=0).
+        # same stamp/frame, driver-native field layout. timestamp carries the
+        # per-point offset_time [ns, as float64] for parity with the real driver
+        # (nothing in FAST-LIO subscribes to this topic); intensity/tag stay
+        # zero (sim has no reflectivity, matching the CustomMsg's reflectivity=0).
         arr = np.zeros(pts.shape[0], dtype=PC2_DTYPE)
         arr["x"] = pts[:, 0]
         arr["y"] = pts[:, 1]
         arr["z"] = pts[:, 2]
         arr["line"] = lines
+        arr["timestamp"] = offs.astype(np.float64)
         pc2 = PointCloud2()
         pc2.header.stamp = stamp
         pc2.header.frame_id = self.lidar_frame
