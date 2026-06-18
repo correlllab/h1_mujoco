@@ -43,7 +43,7 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
     loop (never env.step()), driving the full sim<->ROS bridge layer:
       - SimInterface     : DDS rt/lowstate + rt/lowcmd (27 body motors, name-resolved)
       - RosSensorBridge  : /clock, head RGBD, livox lidar + IMU
-      - MagpieHandBridge : /gripper/{left,right}/* (x2)
+      - MagpieHandBridge : /{left,right}/gripper/* (x2)
       - MeasurementBridge: /robocasa/{task_goal,success,reward} + /elastic_band/toggle
     An elastic-band tether holds the robot upright until the ROS walking policy
     drives it; RoboCasa's _check_success/reward/lang are read off the shared env.
@@ -168,7 +168,7 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
     executor_thread.start()
     print("[h12_mujoco] ROS bridges up: rt/lowstate+rt/lowcmd, /clock, "
           "RGBD /realsense/{head,left_hand,right_hand}, livox lidar+imu, "
-          "/gripper/{left,right}/*, /elastic_band/toggle")
+          "/{left,right}/gripper/*, /elastic_band/toggle")
 
     # SPACE in the viewer toggles the band (ElasticBand.key_callback).
     handle = (

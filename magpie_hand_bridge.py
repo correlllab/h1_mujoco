@@ -7,15 +7,17 @@ two of them (side="left" and side="right") on a background
 MultiThreadedExecutor sharing the sim's threading.Lock so that callbacks
 can safely touch MjData while mj_step runs on the main thread.
 
-Topics / services / actions exposed (per side):
-  /gripper/<side>/state                       custom_ros_messages/msg/GripperState (10 Hz)
-  /gripper/<side>/open                        std_srvs/srv/Trigger
-  /gripper/<side>/close                       std_srvs/srv/Trigger
-  /gripper/<side>/set_position                custom_ros_messages/srv/SetGripperPosition
-  /gripper/<side>/set_force                   custom_ros_messages/srv/SetGripperForce
-  /gripper/<side>/calibrate                   std_srvs/srv/Trigger
-  /gripper/<side>/reset_parameters            std_srvs/srv/Trigger
-  /gripper/<side>/deligrasp                   custom_ros_messages/action/DeliGrasp
+Topics / services / actions exposed (per side), matching the real driver's
+fully-qualified names (gripper_node.py relative 'gripper/...' under namespace
+'<side>'):
+  /<side>/gripper/state                       magpie_msgs/msg/GripperState (10 Hz)
+  /<side>/gripper/open                        std_srvs/srv/Trigger
+  /<side>/gripper/close                       std_srvs/srv/Trigger
+  /<side>/gripper/set_position                magpie_msgs/srv/SetGripperPosition
+  /<side>/gripper/set_force                   magpie_msgs/srv/SetGripperForce
+  /<side>/gripper/calibrate                   std_srvs/srv/Trigger
+  /<side>/gripper/reset_parameters            std_srvs/srv/Trigger
+  /<side>/gripper/deligrasp                   magpie_msgs/action/DeliGrasp
 """
 import threading
 import time
@@ -130,7 +132,12 @@ class MagpieHandBridge(Node):
         # callbacks on the same executor.
         self._cb_group = ReentrantCallbackGroup()
 
-        ns = f"gripper/{side}"
+        # Match the real driver's fully-qualified names exactly. gripper_node.py
+        # uses relative 'gripper/...' names launched under a per-side ROS
+        # namespace (namespace='left'/'right'), yielding /<side>/gripper/<thing>.
+        # This bridge has no node namespace, so it bakes the side into the
+        # relative name to land on the identical /<side>/gripper/<thing> surface.
+        ns = f"{side}/gripper"
         self.pub_state = self.create_publisher(GripperState, f"{ns}/state", 10)
         self._publish_period = 1.0 / publish_rate_hz
         self.timer = self.create_timer(
