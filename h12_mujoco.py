@@ -1,4 +1,5 @@
 import argparse
+import math
 import random
 import threading
 import time
@@ -17,6 +18,35 @@ from mujoco_env import ElasticBand
 from mujoco_ros_bridge import RosSensorBridge
 from sim_names import NameResolver
 from unitree_interface import SimInterface
+
+# Viewer free-camera spawn pose, anchored to the robot so the passive viewer
+# opens framed on the robot wherever it spawns (RoboCasa places the base by
+# layout/seed and place_robot_collision_free may back it off), instead of
+# MuJoCo's default whole-scene framing. Top-down (straight down) view: lookat
+# follows the robot base body, elevation looks straight down, and azimuth (the
+# in-plane rotation of the top-down image) is offset from the base yaw so the
+# robot's facing points a consistent way in frame at any spawn orientation.
+# Spawn-time only — the user can orbit/zoom freely after.
+VIEW_CAM_DISTANCE  = 3.0     # m, camera height above lookat (straight down)
+VIEW_CAM_AZIMUTH   = 90.0    # deg, ADDED to robot yaw — rotates the top-down image
+VIEW_CAM_ELEVATION = -90.0   # deg, -90 = look straight down
+VIEW_CAM_LOOKAT_DZ = 0.0     # m, focal point offset along z (irrelevant for top-down)
+
+
+def _frame_viewer_on_robot(handle, data, body_id):
+    """Set the passive viewer free camera's spawn pose as a function of the robot
+    base body's world pose. lookat tracks the body position; the orbit azimuth is
+    offset from the body's yaw, so framing is invariant to spawn orientation."""
+    pos = data.xpos[body_id]
+    w, x, y, z = (float(v) for v in data.xquat[body_id])
+    yaw_deg = math.degrees(math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
+    cam = handle.cam
+    cam.type = mujoco.mjtCamera.mjCAMERA_FREE
+    cam.lookat[:] = (float(pos[0]), float(pos[1]), float(pos[2]) + VIEW_CAM_LOOKAT_DZ)
+    cam.distance = VIEW_CAM_DISTANCE
+    cam.azimuth = yaw_deg + VIEW_CAM_AZIMUTH
+    cam.elevation = VIEW_CAM_ELEVATION
+
 
 def _draw_band(handle, anchor, body_pos):
     """Draw the elastic band (anchor sphere + capsule to the torso) in the passive
@@ -178,6 +208,21 @@ def sim_loop(task, viewer=True, layout=None, style=None, seed=None):
     )
     if handle is not None:
         handle.opt.geomgroup[0] = 0   # hide collision geoms by default
+        # Frame the free camera on the robot's spawn pose (function of robot
+        # position + yaw). band_body_id is the torso; if the band setup failed,
+        # resolve the torso directly so framing still works.
+        cam_body_id = band_body_id
+        if cam_body_id < 0:
+            try:
+                cam_body_id = resolver.body_id("torso_link")
+            except Exception:
+                cam_body_id = -1
+        if cam_body_id >= 0:
+            try:
+                with handle.lock():
+                    _frame_viewer_on_robot(handle, data, cam_body_id)
+            except Exception as e:
+                print(f"[h12_mujoco] viewer camera framing skipped: {e}")
     try:
         while True:
             start_time = time.time()
