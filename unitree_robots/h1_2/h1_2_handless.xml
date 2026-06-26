@@ -47,7 +47,12 @@
   <worldbody>
     <body name="pelvis" pos="0 0 1.03">
       <inertial pos="-0.0004 3.7e-05 -0.046864" quat="0.497097 0.496809 -0.503132 0.502925" mass="5.983" diaginertia="0.0531565 0.0491678 0.00902583"/>
-      <joint name="floating_base_joint" type="free" limited="false" actuatorfrclimited="false"/>
+      <!-- PARITY (2026-06-26): base 6-DOF frictionloss 0.2 -> 0 to match the planner
+           (h1_2_modified.xml: root default sets only damping/armature, free joint
+           inherits frictionloss=0). Leg <default> 0.2 stays (planner legs are 0.2
+           too, matched); only this base joint overrides. Mirrors the same fix in
+           h1_2_handless_magpie.xml. Removes the twin-only base "brake". -->
+      <joint name="floating_base_joint" type="free" limited="false" actuatorfrclimited="false" frictionloss="0"/>
       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="pelvis"/>
       <geom size="0.05" rgba="0.1 0.1 0.1 1"/>
       <body name="left_hip_yaw_link" pos="0 0.0875 -0.1632">
