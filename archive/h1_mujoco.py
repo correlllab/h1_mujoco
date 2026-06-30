@@ -5,7 +5,7 @@ from mujoco_env import MujocoEnv
 from archive.unitree_h1_interface import SimInterface
 
 # initialize mujoco environment
-mujoco_env = MujocoEnv('unitree_robots/h1/scene_with_target.xml')
+mujoco_env = MujocoEnv('submodules/CL_Assets/mujoco_assets/scene_h1_2_magpie.xml')
 # initialize sdk interface
 sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 

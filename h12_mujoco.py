@@ -1,5 +1,7 @@
 import time
 import argparse
+from pathlib import Path
+
 import numpy as np
 import pyvista as pv
 
@@ -8,7 +10,19 @@ from pv_interface import PVInterface
 from unitree_interface import SimInterface
 
 
-def sim_loop(fixed=False, force_links=None, handless=False):
+CL_ASSETS_MUJOCO = (
+    Path(__file__).resolve().parent / "submodules" / "CL_Assets" / "mujoco_assets"
+)
+
+SCENE_PATHS = {
+    ("handless", False): CL_ASSETS_MUJOCO / "scene_h1_2_handless.xml",
+    ("handless", True): CL_ASSETS_MUJOCO / "scene_h1_2_handless_pelvis_fixed.xml",
+    ("magpie", False): CL_ASSETS_MUJOCO / "scene_h1_2_magpie.xml",
+    ("magpie", True): CL_ASSETS_MUJOCO / "scene_h1_2_magpie_pelvis_fixed.xml",
+}
+
+
+def sim_loop(fixed=False, force_links=None, model="magpie"):
     """
     Simulating the robot in mujoco.
     Publishing low state and high state.
@@ -16,18 +30,12 @@ def sim_loop(fixed=False, force_links=None, handless=False):
     Includes end-effector force interface for human interaction simulation
     """
     # initialize mujoco environment
-    if fixed:
-        if handless:
-            scene_path = "unitree_robots/h1_2/scene_handless_pelvis_fixed.xml"
-        else:
-            scene_path = "unitree_robots/h1_2/scene_pelvis_fixed.xml"
-        mujoco_env = MujocoEnv(scene_path)
-    else:
-        if handless:
-            scene_path = "unitree_robots/h1_2/scene_handless.xml"
-        else:
-            scene_path = "unitree_robots/h1_2/scene.xml"
-        mujoco_env = MujocoEnv(scene_path)
+    scene_path = SCENE_PATHS[(model, fixed)]
+    if not scene_path.exists():
+        raise FileNotFoundError(f"Scene file not found: {scene_path}")
+
+    mujoco_env = MujocoEnv(str(scene_path))
+    if not fixed:
         mujoco_env.init_elastic_band("torso_link")
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
@@ -79,18 +87,19 @@ if __name__ == "__main__":
     model_group = parser.add_mutually_exclusive_group()
     model_group.add_argument(
         "--handless",
-        dest="handless",
-        action="store_true",
-        help="Load handless model scene files (default)",
+        dest="model",
+        action="store_const",
+        const="handless",
+        help="Load handless model scene files from CL_Assets",
     )
     model_group.add_argument(
-        "--inspire",
-        dest="handless",
-        action="store_false",
-        help="Load inspire-hand model scene files",
+        "--magpie",
+        dest="model",
+        action="store_const",
+        const="magpie",
+        help="Load magpie-hand model scene files from CL_Assets (default)",
     )
-    # Default to handless model when no model option is provided.
-    parser.set_defaults(handless=True)
+    parser.set_defaults(model="magpie")
     parser.add_argument(
         "--force",
         nargs="+",
@@ -99,4 +108,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless)
+    sim_loop(fixed=args.fixed, force_links=args.force, model=args.model)

@@ -33,7 +33,7 @@ MuJoCo simulation for the H1_2 robot.
 ## Files
 
 - `archive/` contains old implementations not in use.
-- `unitree_robots/` contains the robot description files.
+- `submodules/CL_Assets/` contains the robot and scene assets used by the simulators.
 - `utility/` contains useful scripts.
 - `h12_mujoco.py` is the main simulation program of h12 robot.
 - `mujoco_env.py` provides utilities for MuJoCo simulation.
@@ -49,14 +49,14 @@ MuJoCo simulation for the H1_2 robot.
 
 ### `h12_mujoco.py` arguments
 
-- `--handless`: use handless model scenes (default).
-- `--inspire`: use inspire-hand model scenes.
+- `--handless`: use handless model scenes.
+- `--magpie`: use magpie model scenes (default).
 - `--fixed`: use pelvis-fixed scene variant (no elastic band).
 - `--force <link1> <link2> ...`: enable external force interface on given links.
 
 Scene selection behavior:
 
-- default / `--handless`: `scene_handless.xml`
-- `--inspire`: `scene.xml`
-- `--fixed` + default / `--handless`: `scene_handless_pelvis_fixed.xml`
-- `--fixed` + `--inspire`: `scene_pelvis_fixed.xml`
+- default / `--magpie`: `submodules/CL_Assets/mujoco_assets/scene_h1_2_magpie.xml`
+- `--handless`: `submodules/CL_Assets/mujoco_assets/scene_h1_2_handless.xml`
+- `--fixed` + default / `--magpie`: `submodules/CL_Assets/mujoco_assets/scene_h1_2_magpie_pelvis_fixed.xml`
+- `--fixed` + `--handless`: `submodules/CL_Assets/mujoco_assets/scene_h1_2_handless_pelvis_fixed.xml`
