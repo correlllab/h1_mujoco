@@ -11,32 +11,32 @@ from unitree_interface import SimInterface
 
 
 CL_ASSETS_MUJOCO = (
-    Path(__file__).resolve().parent / "submodules" / "CL_Assets" / "mujoco_assets"
+    Path(__file__).resolve().parent / 'submodules' / 'CL_Assets' / 'mujoco_assets'
 )
 
 SCENE_PATHS = {
-    ("handless", False): CL_ASSETS_MUJOCO / "scene_h1_2_handless.xml",
-    ("handless", True): CL_ASSETS_MUJOCO / "scene_h1_2_handless_pelvis_fixed.xml",
-    ("magpie", False): CL_ASSETS_MUJOCO / "scene_h1_2_magpie.xml",
-    ("magpie", True): CL_ASSETS_MUJOCO / "scene_h1_2_magpie_pelvis_fixed.xml",
+    ('handless', False): CL_ASSETS_MUJOCO / 'scene_h1_2_handless.xml',
+    ('handless', True): CL_ASSETS_MUJOCO / 'scene_h1_2_handless_pelvis_fixed.xml',
+    ('magpie', False): CL_ASSETS_MUJOCO / 'scene_h1_2_magpie.xml',
+    ('magpie', True): CL_ASSETS_MUJOCO / 'scene_h1_2_magpie_pelvis_fixed.xml',
 }
 
 
-def sim_loop(fixed=False, force_links=None, model="magpie"):
-    """
+def sim_loop(fixed=False, force_links=None, model='magpie'):
+    '''
     Simulating the robot in mujoco.
     Publishing low state and high state.
     Subscribing to low command.
     Includes end-effector force interface for human interaction simulation
-    """
+    '''
     # initialize mujoco environment
     scene_path = SCENE_PATHS[(model, fixed)]
     if not scene_path.exists():
-        raise FileNotFoundError(f"Scene file not found: {scene_path}")
+        raise FileNotFoundError(f'Scene file not found: {scene_path}')
 
     mujoco_env = MujocoEnv(str(scene_path))
     if not fixed:
-        mujoco_env.init_elastic_band("torso_link")
+        mujoco_env.init_elastic_band('torso_link')
     # initialize sdk interface
     sim_interface = SimInterface(mujoco_env.model, mujoco_env.data)
 
@@ -52,7 +52,7 @@ def sim_loop(fixed=False, force_links=None, model="magpie"):
     # pv_interface = PVInterface(mujoco_env.model, mujoco_env.data)
     # pv_interface.track_body(body_name)
 
-    print("Press P to pause/resume the simulation loop")
+    print('Press P to pause/resume the simulation loop')
 
     # launch viewer
     mujoco_env.launch_viewer()
@@ -77,34 +77,34 @@ def sim_loop(fixed=False, force_links=None, model="magpie"):
         time.sleep(max(0, mujoco_env.timestep - (time.time() - start_time)))
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run H1-2 Mujoco simulation")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Run H1-2 Mujoco simulation')
     parser.add_argument(
-        "--fixed",
-        action="store_true",
-        help="Use pelvis-fixed scene without elastic band",
+        '--fixed',
+        action='store_true',
+        help='Use pelvis-fixed scene without elastic band',
     )
     model_group = parser.add_mutually_exclusive_group()
     model_group.add_argument(
-        "--handless",
-        dest="model",
-        action="store_const",
-        const="handless",
-        help="Load handless model scene files from CL_Assets",
+        '--handless',
+        dest='model',
+        action='store_const',
+        const='handless',
+        help='Load handless model scene files from CL_Assets',
     )
     model_group.add_argument(
-        "--magpie",
-        dest="model",
-        action="store_const",
-        const="magpie",
-        help="Load magpie-hand model scene files from CL_Assets (default)",
+        '--magpie',
+        dest='model',
+        action='store_const',
+        const='magpie',
+        help='Load magpie-hand model scene files from CL_Assets (default)',
     )
-    parser.set_defaults(model="magpie")
+    parser.set_defaults(model='magpie')
     parser.add_argument(
-        "--force",
-        nargs="+",
+        '--force',
+        nargs='+',
         default=None,
-        help="Enable external force interface for specified link names",
+        help='Enable external force interface for specified link names',
     )
     args = parser.parse_args()
 
