@@ -1,0 +1,30 @@
+<mujoco model="h1 handless + magpie scene (box floor)">
+  <!-- BENCH-ONLY parity probe (2026-07-05): identical to scene_handless_magpie.xml
+       except the floor is the RoboCasa kitchen's walking surface geometry — a thin
+       BOX (probed from the assembled PlaceDishesBySink model: floor_1_room_g0,
+       size 3.86 x 3.088 x 0.02, friction 1.0/0.005/0, priority 0, condim 3) instead
+       of an infinite plane. Top face sits at z=0 so the robot spawn/keyframe is
+       unchanged; the only delta vs the stock scene is box-vs-plane contact
+       narrowphase. Selected by h12_mujoco.py --box-floor. -->
+  <include file="h1_2_handless_magpie.xml"/>
+
+  <statistic center="1.0 0.7 1.5" extent="0.8"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" type="box" size="3.86 3.088 0.02" pos="0 0 -0.02"
+          friction="1.0 0.005 0.0" material="groundplane"/>
+  </worldbody>
+</mujoco>
