@@ -18,6 +18,13 @@ dependencies = [
     "unitree-sdk2py",
 ]
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["mujoco_env"]
+
 [tool.uv.workspace]
 members = [
     "submodules/unitree_sdk2_python",
