@@ -44,8 +44,8 @@ class SimInterface:
                 self.have_frame_sensor = True
 
         # initialize channel
-        ChannelFactoryInitialize(id=0)
-        # ChannelFactoryInitialize(id=0, networkInterface='lo')
+        ChannelFactoryInitialize(id=1)
+        # ChannelFactoryInitialize(id=1, networkInterface='lo')
         # publish low state
         self.low_state = LowState_default()
         self.low_state_publisher = ChannelPublisher(TOPIC_LOWSTATE, LowState_)
@@ -211,7 +211,7 @@ class ShadowInterface():
         self.motor_torque = np.zeros(self.num_motor)
 
         # initialize channel
-        ChannelFactoryInitialize(id=0)
+        ChannelFactoryInitialize(id=1)
         # subscribe low state
         self.low_state_suber = ChannelSubscriber(TOPIC_LOWSTATE, LowState_)
         self.low_state_suber.Init(self.SubscribeLowState, 10)
