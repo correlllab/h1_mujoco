@@ -1,0 +1,114 @@
+<mujoco model="h1 handless + magpie + BRACE TABLE scene">
+  <!-- TWIN TABLE SCENE (2026-07-13) -- the deploy-plant counterpart of the MJPC
+       planner's lean.xml table, so the forearm brace (strat 22 / lean 34) can
+       finally be judged by an oracle that is not the planner's own sim.
+
+       Table geometry + contact params are copied VERBATIM from
+       mjpc/tasks/humanoid_bench/lean/lean.xml so the two models agree:
+         body z 0.42 + geom z 0.39 + half-thickness 0.055  =>  TOP SURFACE z = 0.865 m
+         body x 1.0125 - half-extent 0.6125            =>  NEAR EDGE     x = 0.400 m (standoff
+           is a DEPLOYMENT choice: pack dimensions + face height are faithful, distance is not)
+         half-extents 0.6125 x 1.06 x 0.055
+         priority=1, solref="0.08 1", solimp="0.85 0.95 0.001 0.5 2"
+
+       ★ 2026-07-25: the slab is now the REAL ARPA BATTERY PACK, not the 87 cm lab table.
+         Copied from CL_Assets/battery/arpa_system.xml's `battery_collision` proxy as placed
+         by CL_Assets/battery/scene_h1_2_battery.xml (see the long note in lean.xml for the
+         frame arithmetic). Surface 0.870 -> 0.865; near edge HELD at 0.400 by choosing the standoff (see lean.xml).
+       ⚠ THIS FILE AND lean.xml MUST BE EDITED TOGETHER. The brace gate reads
+         `table_surface_pos` from the PLANNER model while contact happens HERE; a silent 50 mm
+         disagreement between the two is exactly the bug that zeroed the entire brace reward
+         through five weight sweeps (2026-07-25). Verify with:
+           parity_audit.py <planner xml> <this scene>   # diffs table_top* by name
+       (the twin has no visual/collision default classes, so contype/conaffinity/
+       group are written out explicitly here).
+
+       ★ THE POINT OF THIS SCENE: it is PHYSICALLY HONEST. The planner model
+       <exclude>s the table from the entire arm chain (elbow, all 3 wrist links,
+       gripper) and re-adds contact only through an inert pad <pair>. That lets
+       the planner drive the gripper/wrist ~10 cm THROUGH the tabletop while a
+       hovering pad reports newtons. This twin keeps the arm SOLID -- the gripper
+       box and forearm meshes collide with the wood exactly as they would on the
+       real robot. Compare against scene_handless_magpie_table_planner_parity.xml
+       (same scene + the planner's excludes) to isolate the phantom. -->
+  <include file="h1_2_handless_magpie.xml"/>
+
+  <statistic center="1.0 0.7 1.5" extent="0.8"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- ★ TABLE X MOVED 1.0125 -> 0.78 (2026-07-29). MUST STAY IDENTICAL to the
+         PLANNER copy in mujoco_mpc/.../humanoid_bench/lean/lean.xml, or planner and
+         twin disagree about where the slab is. See that file for the full rationale:
+         the robot spawns with feet at x ~0.015 and cannot step in strat 22, so the
+         forearm pad only reached x 0.224-0.272 vs a near edge at 0.400 and could
+         never get over the slab -- only the wrist/gripper reached. Slab size and face
+         height (z 0.865) are UNCHANGED; only its distance from the robot moves. -->
+    <body name="table" pos="0.8875 0 0.5100">
+      <geom name="table_top" type="box" pos="0 0 0.39" size="0.6125 1.06 0.055"
+            contype="0" conaffinity="0" group="1" rgba="0.72 0.53 0.32 1"/>
+      <geom name="table_top_collision" type="box" pos="0 0 0.39" size="0.6125 1.06 0.055"
+            contype="1" conaffinity="1" group="3" priority="1"
+            solref="0.08 1" solimp="0.85 0.95 0.001 0.5 2"/>
+      <geom name="table_leg_1_collision" type="box" pos="0.4 0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_2_collision" type="box" pos="0.4 -0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_3_collision" type="box" pos="-0.4 0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_4_collision" type="box" pos="-0.4 -0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+    </body>
+  </worldbody>
+
+  <contact>
+    <!-- The forearm pads are inert (contype/conaffinity 0); these explicit pairs are
+         the ONLY thing that makes them collide -- identical params to the planner's
+         left/right_forearm_brace_pair in Lean_H12_Magpie.xml. -->
+    <pair name="left_forearm_brace_pair" geom1="left_forearm_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+    <pair name="right_forearm_brace_pair" geom1="right_forearm_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+
+    <!-- WRIST pads vs the table: the wrist_yaw collision capsule (r 0.025) under-bounds its real
+         mesh (underside at local z -0.0425), so without these the wrist housing sinks ~1.4 cm into
+         the tabletop. Same params as the forearm pads -> the braced underside acts as one surface. -->
+    <pair name="left_wrist_brace_pair" geom1="left_wrist_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+    <pair name="right_wrist_brace_pair" geom1="right_wrist_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+
+    <!-- CONTACT PARITY with the FIXED planner model (Lean_H12_Magpie.xml, 2026-07-13): the left
+         shoulder + left ELBOW raw meshes stay excluded because the inert forearm pad above is the
+         elbow's contact proxy in BOTH models -- without these the twin would double-count the
+         forearm (raw mesh AND pad). The wrist links and the grippers are deliberately NOT
+         excluded here or in the planner: they are solid, which is the whole point of this scene. -->
+    <exclude body1="table" body2="left_shoulder_pitch_link"/>
+    <exclude body1="table" body2="left_shoulder_roll_link"/>
+    <exclude body1="table" body2="left_shoulder_yaw_link"/>
+    <exclude body1="table" body2="left_elbow_link"/>
+  </contact>
+
+  <sensor>
+    <touch name="left_forearm_contact" site="left_forearm_brace"/>
+    <touch name="right_forearm_contact" site="right_forearm_brace"/>
+  </sensor>
+</mujoco>

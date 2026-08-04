@@ -1,0 +1,75 @@
+<mujoco model="h1 handless + magpie + BRACE TABLE (planner-parity excludes)">
+  <!-- CONTROL SCENE for the phantom-arm experiment (2026-07-13).
+
+       Identical to scene_handless_magpie_table.xml EXCEPT it also carries the MJPC
+       planner's table<->arm <exclude> set (Lean_H12_Magpie.xml lines ~840-851).
+       Those excludes delete every contact between the table and the arm chain --
+       elbow link, all three wrist links, and the gripper -- leaving the inert
+       forearm pad's explicit <pair> as the only contact the arm can ever make.
+
+       Use it ONLY as the A/B control: this scene should REPRODUCE the own-sim
+       brace (arm sinks through the wood, pad reports ~30 N), while the honest
+       scene should not. If the honest scene diverges and this one matches, the
+       excludes -- not the twin's dynamics -- are what own-sim's brace depends on. -->
+  <include file="h1_2_handless_magpie.xml"/>
+
+  <statistic center="1.0 0.7 1.5" extent="0.8"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <body name="table" pos="1.0125 0 0.42">
+      <geom name="table_top" type="box" pos="0 0 0.39" size="0.6125 1.06 0.055"
+            contype="0" conaffinity="0" group="1" rgba="0.72 0.53 0.32 1"/>
+      <geom name="table_top_collision" type="box" pos="0 0 0.39" size="0.6125 1.06 0.055"
+            contype="1" conaffinity="1" group="3" priority="1"
+            solref="0.08 1" solimp="0.85 0.95 0.001 0.5 2"/>
+      <geom name="table_leg_1_collision" type="box" pos="0.4 0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_2_collision" type="box" pos="0.4 -0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_3_collision" type="box" pos="-0.4 0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+      <geom name="table_leg_4_collision" type="box" pos="-0.4 -0.9 -0.0425" size="0.05 0.05 0.3775"
+            contype="1" conaffinity="1" group="3" rgba="0.35 0.24 0.15 1"/>
+    </body>
+  </worldbody>
+
+  <contact>
+    <pair name="left_forearm_brace_pair" geom1="left_forearm_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+    <pair name="right_forearm_brace_pair" geom1="right_forearm_pad" geom2="table_top_collision"
+          condim="4" friction="1.0 1.0 0.02 0.0001 0.0001" solref="0.02 1" solimp="0.015 1 0.022"
+          margin="0.002" gap="0"/>
+
+    <!-- THE PHANTOM: the planner's table<->arm excludes, mirrored verbatim. -->
+    <exclude body1="table" body2="left_shoulder_pitch_link"/>
+    <exclude body1="table" body2="left_shoulder_roll_link"/>
+    <exclude body1="table" body2="left_shoulder_yaw_link"/>
+    <exclude body1="table" body2="left_elbow_link"/>
+    <exclude body1="table" body2="left_wrist_roll_link"/>
+    <exclude body1="table" body2="left_wrist_pitch_link"/>
+    <exclude body1="table" body2="left_wrist_yaw_link"/>
+    <exclude body1="table" body2="left_magpie_gripper"/>
+    <exclude body1="table" body2="right_magpie_gripper"/>
+  </contact>
+
+  <sensor>
+    <touch name="left_forearm_contact" site="left_forearm_brace"/>
+    <touch name="right_forearm_contact" site="right_forearm_brace"/>
+  </sensor>
+</mujoco>

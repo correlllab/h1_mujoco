@@ -155,6 +155,14 @@
                 <joint name="left_elbow_joint" pos="0 0 0" axis="0 1 0" range="-0.95 3.18" actuatorfrcrange="-18 18"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="left_elbow_link"/>
                 <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="left_elbow_link"/>
+                <!-- FOREARM BRACE PAD + touch site, mirrored from the MJPC planner model
+                     (h1_2_modified_magpie.xml.patch) so twin == planner. INERT here
+                     (contype/conaffinity 0, mass/density 0): it produces contact ONLY via an
+                     explicit <pair> vs a table, which exists only in the table scene. Every
+                     other twin scene (stand/trot/drive/jump) is therefore byte-identical. -->
+                <geom name="left_forearm_pad" type="capsule" size="0.035" fromto="0.02 -0.01 -0.015 0.11 -0.03 -0.015" contype="0" conaffinity="0" group="3" mass="0" density="0" rgba="0.2 0.7 0.2 0.55"/>
+                <site name="left_forearm_brace" type="capsule" size="0.045" fromto="0.02 -0.01 -0.015 0.11 -0.03 -0.015" rgba="1 0.5 0 0.25" group="4"/>
+                <site name="left_forearm_brace_zone" type="capsule" size="0.06" fromto="0.02 -0.015 -0.02 0.25 -0.033 -0.02" rgba="1 0.5 0 0.10" group="4"/>
                 <body name="left_wrist_roll_link" pos="0.121 -0.0329 -0.011">
                   <inertial pos="0.035281 -0.00232 0.000337" quat="0.334998 0.622198 -0.240131 0.66557" mass="0.683" diaginertia="0.00034681 0.000328248 0.000294628"/>
                   <joint name="left_wrist_roll_joint" pos="0 0 0" axis="1 0 0" range="-3.01 2.75" actuatorfrcrange="-19 19"/>
@@ -169,14 +177,38 @@
                       <inertial pos="0.027967 9.6e-05 0.000739" quat="0.704961 -0.0198461 -0.019614 0.708697" mass="0.124" diaginertia="0.000169999 0.000137463 8.46436e-05"/>
                       <joint name="left_wrist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.27 1.27" actuatorfrcrange="-19 19"/>
                       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="wrist_yaw_link"/>
+                      <!-- wrist brace pad, mirrored from the planner (bounds the wrist mesh's true
+                           underside at local z -0.0425). INERT -> only the table <pair> activates it. -->
+                      <geom name="left_wrist_pad" type="capsule" size="0.0425" fromto="-0.020 0 0 0.063 0 0" contype="0" conaffinity="0" group="3" mass="0" density="0" rgba="0.2 0.7 0.2 0.55"/>
                       <!-- Magpie gripper: FIXED, rigidly welded (real combined h12_mount mesh).
                            Geom carries the lumped mass (0.506 kg); MuJoCo derives CoM (~6.7 cm past
                            the wrist) + inertia from the mesh. Matches the MJPC Lean_H12_Magpie model
                            so twin == planner == real. Zero extra DOF -> nu=27 / nq=34 unchanged. -->
                       <body name="left_magpie_gripper">
                         <geom type="mesh" mesh="h12_mount" pos="0.054 0 0" quat="0.7071068 0 0.70710685 0" mass="0.506" contype="0" conaffinity="0" group="1" rgba="0.1 0.1 0.1 1"/>
-                        <geom name="left_gripper_collision" type="box" size="0.035 0.05 0.06"
-                              pos="0.10 0 0" quat="0.7071068 0 0.70710685 0" contype="1" conaffinity="1" group="3" mass="0"/>
+                        <!-- ★★★ REAL JAW GEOMETRY (2026-07-24). The old single box
+                             (size 0.035 0.05 0.06 @ x=0.10) UNDER-BOUNDED the real magpie badly:
+                             measured from magpie/meshes/magpie/*.stl the gripper is 171 mm long
+                             and the OPEN JAWS SPAN 212 mm, so the box stopped at x=0.16 where the
+                             real finger tips reach x=0.225, and covered +-35 mm where a finger
+                             reaches +-106 mm. On the brace keyframe that made the model report
+                             +33 mm table clearance while the real lower finger root sat at +13 mm.
+                             Now modelled as the three real solids, in the gripper BODY frame
+                             (mesh->body map for quat 0.7071 0 0.7071 0: mesh z -> +x = finger
+                             length, mesh y -> +y = thin axis, mesh x -> -z = JAW SEPARATION):
+                               base_bot+base_top  mx +-66.7  my -19..15   mz 2..85    mm
+                               *_finger_combined  mx +-54..106.2  my -11.8..4.2  mz 79.6..171.4 mm
+                             mass/density 0 -- the 0.506 kg still comes from the mount mesh geom,
+                             so dynamics are unchanged; this is a COLLISION-fidelity fix only.
+                             ★ The jaw pair straddles the body z axis, so wrist ROLL decides
+                             whether the jaws sit LEFT/RIGHT (both clear of a table) or UP/DOWN
+                             (one finger aimed at the wood). Audit it with brace_jaw_audit.py. -->
+                        <geom name="left_gripper_collision" type="box" size="0.0425 0.0315 0.0667"
+                              pos="0.0965 0 0" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
+                        <geom name="left_gripper_jaw_a" type="box" size="0.0459 0.008 0.0261"
+                              pos="0.1795 -0.0038 -0.0801" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
+                        <geom name="left_gripper_jaw_b" type="box" size="0.0459 0.008 0.0261"
+                              pos="0.1795 -0.0038 0.0801" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
                       </body>
                     </body>
                   </body>
@@ -205,6 +237,10 @@
                 <joint name="right_elbow_joint" pos="0 0 0" axis="0 1 0" range="-0.95 3.18" actuatorfrcrange="-18 18"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="right_elbow_link"/>
                 <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="right_elbow_link"/>
+                <!-- forearm brace pad + touch site (mirror of the left; see note above) -->
+                <geom name="right_forearm_pad" type="capsule" size="0.035" fromto="0.02 0.01 -0.015 0.11 0.03 -0.015" contype="0" conaffinity="0" group="3" mass="0" density="0" rgba="0.2 0.7 0.2 0.55"/>
+                <site name="right_forearm_brace" type="capsule" size="0.045" fromto="0.02 0.01 -0.015 0.11 0.03 -0.015" rgba="1 0.5 0 0.25" group="4"/>
+                <site name="right_forearm_brace_zone" type="capsule" size="0.06" fromto="0.02 0.015 -0.02 0.25 0.033 -0.02" rgba="1 0.5 0 0.10" group="4"/>
                 <body name="right_wrist_roll_link" pos="0.121 0.0329 -0.011">
                   <inertial pos="0.035281 -0.00232 0.000337" quat="0.334998 0.622198 -0.240131 0.66557" mass="0.683" diaginertia="0.00034681 0.000328248 0.000294628"/>
                   <joint name="right_wrist_roll_joint" pos="0 0 0" axis="1 0 0" range="-2.75 3.01" actuatorfrcrange="-19 19"/>
@@ -219,14 +255,21 @@
                       <inertial pos="0.027967 -9.6e-05 0.000739" quat="0.708697 -0.019614 -0.0198461 0.704961" mass="0.124" diaginertia="0.000169999 0.000137463 8.46436e-05"/>
                       <joint name="right_wrist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.27 1.27" actuatorfrcrange="-19 19"/>
                       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.1 0.1 0.1 1" mesh="wrist_yaw_link"/>
+                      <!-- wrist brace pad (mirror of the left; see the note there) -->
+                      <geom name="right_wrist_pad" type="capsule" size="0.0425" fromto="-0.020 0 0 0.063 0 0" contype="0" conaffinity="0" group="3" mass="0" density="0" rgba="0.2 0.7 0.2 0.55"/>
                       <!-- Magpie gripper: FIXED, rigidly welded (real combined h12_mount mesh).
                            Geom carries the lumped mass (0.506 kg); MuJoCo derives CoM (~6.7 cm past
                            the wrist) + inertia from the mesh. Matches the MJPC Lean_H12_Magpie model
                            so twin == planner == real. Zero extra DOF -> nu=27 / nq=34 unchanged. -->
                       <body name="right_magpie_gripper">
                         <geom type="mesh" mesh="h12_mount" pos="0.054 0 0" quat="0.7071068 0 0.70710685 0" mass="0.506" contype="0" conaffinity="0" group="1" rgba="0.1 0.1 0.1 1"/>
-                        <geom name="right_gripper_collision" type="box" size="0.035 0.05 0.06"
-                              pos="0.10 0 0" quat="0.7071068 0 0.70710685 0" contype="1" conaffinity="1" group="3" mass="0"/>
+                        <!-- real jaw geometry, mirror of the left side (see the note there) -->
+                        <geom name="right_gripper_collision" type="box" size="0.0425 0.0315 0.0667"
+                              pos="0.0965 0 0" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
+                        <geom name="right_gripper_jaw_a" type="box" size="0.0459 0.008 0.0261"
+                              pos="0.1795 -0.0038 -0.0801" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
+                        <geom name="right_gripper_jaw_b" type="box" size="0.0459 0.008 0.0261"
+                              pos="0.1795 -0.0038 0.0801" contype="1" conaffinity="1" group="3" mass="0" density="0"/>
                       </body>
                     </body>
                   </body>
