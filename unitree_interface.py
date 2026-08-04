@@ -1,3 +1,6 @@
+import math
+import os
+
 import mujoco
 import numpy as np
 import time
@@ -20,6 +23,26 @@ TOPIC_HANDSTATE = 'rt/inspire/state'
 MOTOR_NUM = 27
 MOTOR_SENSOR_NUM = 3
 
+def _parse_zero_offset():
+    '''Encoder zero-offset injection: "4:+4.87,10:+2.87" (motor_idx:degrees).
+
+    off = encoder - true, matching the deploy --ankle_pitch_offset_*_deg
+    convention. A bad zero corrupts EVERYTHING downstream of the encoder --
+    the reported lowstate AND the onboard PD's feedback -- while the physics
+    stays true. Unset/empty -> all zeros -> byte-identical (x + 0.0 == x).
+    '''
+    spec = os.environ.get('H12_TWIN_ZERO_OFFSET_DEG', '').strip()
+    off = np.zeros(MOTOR_NUM)
+    if not spec:
+        return off
+    for pair in spec.split(','):
+        idx, deg = pair.split(':')
+        off[int(idx)] = math.radians(float(deg))
+    print(f'[twin] ZERO-OFFSET INJECTED (deg): '
+          f'{ {i: round(math.degrees(v), 3) for i, v in enumerate(off) if v} }')
+    return off
+
+
 class SimInterface:
     def __init__(self, model, data):
         # record mujoco model & data
@@ -30,6 +53,7 @@ class SimInterface:
         self.num_motor = MOTOR_NUM
         self.num_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
         self.dt = self.model.opt.timestep
+        self.zero_offset = _parse_zero_offset()
 
         # check sensor
         self.have_imu = False
@@ -83,7 +107,9 @@ class SimInterface:
             self.low_state.tick = int(self.data.time / self.dt)
             # write motor state
             for i in range(self.num_motor):
-                self.low_state.motor_state[i].q = self.data.sensordata[i]
+                self.low_state.motor_state[i].q = (
+                    self.data.sensordata[i] + self.zero_offset[i]
+                )
                 self.low_state.motor_state[i].dq = self.data.sensordata[
                     i + self.num_motor
                 ]
@@ -159,10 +185,12 @@ class SimInterface:
             # apply control to each motor
             for i in range(self.num_motor):
                 if msg.motor_cmd[i].mode == 1:
+                    # the onboard PD closes on the ENCODER, not on truth
                     self.data.ctrl[i] = (
                         msg.motor_cmd[i].tau
                         + msg.motor_cmd[i].kp
-                        * (msg.motor_cmd[i].q - self.data.sensordata[i])
+                        * (msg.motor_cmd[i].q
+                           - (self.data.sensordata[i] + self.zero_offset[i]))
                         + msg.motor_cmd[i].kd
                         * (
                             msg.motor_cmd[i].dq

@@ -1,0 +1,17 @@
+<mujoco model="h1 presentation">
+  <include file="h1_2_handless_magpie.xml"/>
+  <statistic center="0 0 0.9" extent="1.9"/>
+  <visual>
+    <global offwidth="2000" offheight="2000" azimuth="150" elevation="-12"/>
+    <headlight diffuse="0.45 0.45 0.5" ambient="0.4 0.4 0.45" specular="0.25 0.25 0.25"/>
+    <quality shadowsize="4096" offsamples="8"/>
+    <map force="0.1" zfar="30"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.10 0.12 0.16" rgb2="0.02 0.02 0.04" width="512" height="512"/>
+  </asset>
+  <worldbody>
+    <light pos="2.5 -2.5 3.2" dir="-0.6 0.6 -1" directional="true" diffuse="0.75 0.75 0.78" specular="0.3 0.3 0.3"/>
+    <light pos="-2.5 -1.5 2.5" dir="0.6 0.4 -1" directional="true" diffuse="0.32 0.32 0.38"/>
+  </worldbody>
+</mujoco>

@@ -10,7 +10,8 @@ from unitree_interface import SimInterface
 
 
 def _auto_harness_loop(mujoco_env, stiff, headless=False, duration=300.0,
-                       sim_dt=0.0, slow_factor=1.0):
+                       sim_dt=0.0, slow_factor=1.0, trace_out=None,
+                       trace_hz=25.0, stop_on_fall=0.0):
     """Automated gantry-harness bring-up + release — the T1 twin-control port of
     the RoboCasa bench harness (HAMS/h1_robocasa/h12_mujoco.py --harness), so the
     IDENTICAL procedure can be compared on the twin, where the stand is known-good:
@@ -59,6 +60,11 @@ def _auto_harness_loop(mujoco_env, stiff, headless=False, duration=300.0,
           f"holdout {HOLDOUT:.0f}s + {HFADE:.0f}s grip fade, chunk "
           f"{CHUNK*100:.0f}cm/{SETTLE:.0f}s, fade {RFADE:.1f}s", flush=True)
     sim_t0 = time.time(); n = 0
+    # opt-in qpos trace for render_twin_trace.py -- the PLANT's own ground truth
+    # (not the node's belief, not the planner's own-sim). trace_out=None => inert.
+    _tr = {"t": [], "qpos": [], "qvel": [], "next": 0.0} if trace_out else None
+    _tr_dt = 1.0 / max(trace_hz, 1e-6)
+    _fall_since = [None]   # sim time the robot first read FALLEN, for --stop-on-fall
     viewer = mujoco_env.viewer if not headless else None
     while True:
         if viewer is not None and not viewer.is_running():
@@ -90,9 +96,27 @@ def _auto_harness_loop(mujoco_env, stiff, headless=False, duration=300.0,
                 x = np.array(data.xpos[torso])
                 R = data.xmat[torso].reshape(3, 3)
                 tilt = float(np.degrees(np.arccos(np.clip(R[2, 2], -1, 1))))
+                fallen = x[2] < 0.5
                 print(f"[twin-harness] free-stand: t={data.time:.1f}s "
                       f"z={x[2]:.2f} tilt={tilt:.1f}deg"
-                      + ("  *** FALLEN ***" if x[2] < 0.5 else ""), flush=True)
+                      + ("  *** FALLEN ***" if fallen else ""), flush=True)
+                # opt-in early exit: once the robot is DOWN, the rest of the run is
+                # dead air (a fallen run otherwise burns the remaining duration, up to
+                # ~160 s of the 210 s cap, and every later ladder stage is meaningless
+                # anyway -- lean_bound_metrics reports them as "n/a (already down)").
+                # Break out of the LOOP rather than killing the process, so the qpos
+                # trace still gets written below. 0 = off => byte-identical.
+                if stop_on_fall > 0.0:
+                    if fallen:
+                        if _fall_since[0] is None:
+                            _fall_since[0] = data.time
+                        elif data.time - _fall_since[0] >= stop_on_fall:
+                            print(f"[twin-harness] FALLEN for {stop_on_fall:.0f}s "
+                                  f"(since t={_fall_since[0]:.1f}s) — aborting run "
+                                  f"early at t={data.time:.1f}s", flush=True)
+                            break
+                    else:
+                        _fall_since[0] = None
         if not released:
             x = np.array(data.xpos[torso]); v = np.array(data.qvel[0:3])
             delta = anchor - x; d = float(np.linalg.norm(delta))
@@ -176,6 +200,11 @@ def _auto_harness_loop(mujoco_env, stiff, headless=False, duration=300.0,
             elif rel_t0 is None:
                 slack_t0 = None
         mujoco.mj_step(model, data)
+        if _tr is not None and data.time >= _tr["next"]:
+            _tr["next"] = data.time + _tr_dt
+            _tr["t"].append(float(data.time))
+            _tr["qpos"].append(np.array(data.qpos, float))
+            _tr["qvel"].append(np.array(data.qvel, float))
         n += 1
         if viewer is not None and n % mujoco_env._render_every == 0:
             viewer.sync()
@@ -186,11 +215,22 @@ def _auto_harness_loop(mujoco_env, stiff, headless=False, duration=300.0,
         ahead = (sim_t0 + n * mujoco_env.timestep / slow_factor) - time.time()
         if ahead > 0:
             time.sleep(ahead)
+    if _tr is not None and _tr["t"]:
+        # render_twin_trace.py schema: t + base_pos/base_quat/q sliced from qpos.
+        Q = np.asarray(_tr["qpos"]); V = np.asarray(_tr["qvel"])
+        np.savez_compressed(trace_out, t=np.asarray(_tr["t"]),
+                            qpos_full=Q, base_pos=Q[:, 0:3],
+                            base_quat=Q[:, 3:7], q=Q[:, 7:34],
+                            qvel_full=V, base_vel=V[:, 0:6], dq=V[:, 6:33],
+                            meta=np.array([f"source=twin_plant_qpos",
+                                           f"dt={model.opt.timestep}"], dtype=object))
+        print(f"[twin-harness] trace: {len(_tr['t'])} frames -> {trace_out}", flush=True)
 
 
 def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0, magpie=False,
              auto_harness=False, headless=False, duration=300.0, sim_dt=0.0,
-             slow_factor=1.0, box_floor=False):
+             slow_factor=1.0, box_floor=False, scene=None, trace_out=None,
+             stop_on_fall=0.0):
     """
     Simulating the robot in mujoco.
     Publishing low state and high state.
@@ -222,6 +262,11 @@ def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0, magpie=F
                 scene_path = "unitree_robots/h1_2/scene_handless_magpie_boxfloor.xml"
         else:
             scene_path = "unitree_robots/h1_2/scene.xml"
+        if scene:
+            # explicit scene override (e.g. the TABLE scene the forearm-brace
+            # strategy needs). Opt-in: scene=None => byte-identical selection.
+            scene_path = scene
+            print(f"[h12_mujoco] SCENE OVERRIDE: {scene_path}", flush=True)
         mujoco_env = MujocoEnv(scene_path)
         if magpie and box_floor:
             # RoboCasa contact regime: box-mesh narrowphase yields ONE contact
@@ -318,7 +363,8 @@ def sim_loop(fixed=False, force_links=None, handless=False, crouch=0.0, magpie=F
             mujoco_env.launch_viewer()
         _auto_harness_loop(mujoco_env, _ah_stiff, headless=headless,
                            duration=duration, sim_dt=sim_dt,
-                           slow_factor=slow_factor)
+                           slow_factor=slow_factor, trace_out=trace_out,
+                           stop_on_fall=stop_on_fall)
         return
 
     # crouch rehearsal: hold the pose (no gravity integration) until the node's first STIFF
@@ -505,10 +551,29 @@ if __name__ == "__main__":
         help="(bench parity probe, --magpie only) replace the plane floor with "
              "the RoboCasa kitchen's thin-box walking surface (3.86x3.088x0.02, "
              "top at z=0) -- isolates box-vs-plane foot contact narrowphase.")
+    parser.add_argument(
+        "--scene", default=None,
+        help="explicit scene XML (h1_mujoco-relative or absolute), overriding the "
+             "--handless/--magpie selection. Use for the forearm-brace bench: "
+             "unitree_robots/h1_2/scene_handless_magpie_table.xml")
+    parser.add_argument(
+        "--trace-out", dest="trace_out", default=None,
+        help="(with --auto-harness) write a qpos trace npz of the PLANT's own "
+             "ground truth for render_twin_trace.py / twin_mindmap.py")
+    parser.add_argument(
+        "--stop-on-fall", dest="stop_on_fall", type=float, default=0.0,
+        metavar="SEC",
+        help="(with --auto-harness) end the run early once the robot has read "
+             "FALLEN continuously for SEC seconds, instead of playing out the rest "
+             "of --duration as dead air (a fallen 210s run wasted up to ~160s, and "
+             "every later ladder stage is meaningless anyway). The qpos trace is "
+             "still written. 0 = off, byte-identical.")
     args = parser.parse_args()
 
     sim_loop(fixed=args.fixed, force_links=args.force, handless=args.handless,
              crouch=args.crouch, magpie=args.magpie,
              auto_harness=args.auto_harness, headless=args.headless,
              duration=args.duration, sim_dt=args.sim_dt,
-             slow_factor=args.slow_factor, box_floor=args.box_floor)
+             slow_factor=args.slow_factor, box_floor=args.box_floor,
+             scene=args.scene, trace_out=args.trace_out,
+             stop_on_fall=args.stop_on_fall)

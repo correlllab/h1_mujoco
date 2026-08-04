@@ -1,0 +1,64 @@
+<mujoco model="h1 handless + magpie GRASP DEMO scene">
+  <!-- TEMP render-only scene for the grasp-controller demo movie
+       (grasp_movie.py). Auto-materialised by ensure_scene() if missing. Same
+       robot include as scene_handless_magpie.xml so the robot qpos layout
+       (nq=34) is byte-identical to the twin the rollout runs on. Not used by any
+       controller; safe to delete (it regenerates). -->
+  <include file="h1_2_handless_magpie.xml"/>
+
+  <statistic center="0.5 -0.1 1.0" extent="1.1"/>
+
+  <visual>
+    <headlight diffuse="0.65 0.65 0.65" ambient="0.2 0.2 0.2" specular="0.3 0.3 0.3"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="150" elevation="-18" offwidth="1280" offheight="960"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.10 0.14 0.20" rgb2="0.02 0.03 0.05" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.18 0.24 0.30" rgb2="0.10 0.15 0.20" markrgb="0.55 0.6 0.65" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="6 6" reflectance="0.15"/>
+    <texture type="2d" name="woodtex" builtin="flat" rgb1="0.45 0.32 0.18" width="64" height="64"/>
+    <material name="wood" rgba="0.45 0.32 0.18 1" reflectance="0.05" shininess="0.2"/>
+    <material name="wood_leg" rgba="0.30 0.21 0.12 1" reflectance="0.05"/>
+    <material name="target_part" rgba="0.95 0.35 0.10 1" reflectance="0.25" shininess="0.6"/>
+    <material name="target_head" rgba="0.80 0.82 0.85 1" reflectance="0.4" shininess="0.8"/>
+  </asset>
+
+  <worldbody>
+    <light pos="1.2 -0.4 3.2" dir="-0.2 0.1 -1" directional="true" diffuse="0.5 0.5 0.5"/>
+    <light pos="0.4 -1.0 2.4" dir="0.1 0.4 -1" diffuse="0.35 0.35 0.4" specular="0.2 0.2 0.2"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- table top raised to z=1.046 so the small nut sits on it AT the grasp point
+         (nut centre 1.05, 4 mm half-height -> bottom 1.046 on the top surface). -->
+    <body name="table" pos="0.72 -0.15 0">
+      <geom name="table_top" type="box" pos="0 0 1.026" size="0.24 0.30 0.02" material="wood"/>
+      <geom name="leg_1" type="box" pos="-0.21 -0.27 0.503" size="0.02 0.02 0.503" material="wood_leg"/>
+      <geom name="leg_2" type="box" pos="0.21 -0.27 0.503"  size="0.02 0.02 0.503" material="wood_leg"/>
+      <geom name="leg_3" type="box" pos="-0.21 0.27 0.503"  size="0.02 0.02 0.503" material="wood_leg"/>
+      <geom name="leg_4" type="box" pos="0.21 0.27 0.503"   size="0.02 0.02 0.503" material="wood_leg"/>
+    </body>
+
+    <!-- SMALL screw/nut precision target: 1.5 cm across (radius 0.0075 m), 8 mm
+         tall, sitting ON the (raised) table top at the grasp point (centre z=1.05).
+         A brass hex-ish nut with a dark threaded hole. Driven per-frame via
+         mocap_pos[0] (adds NO qpos). Tiny on purpose -- it is the precision test
+         for the terminal IK lock-on that seats the jaws onto it. -->
+    <body name="target" mocap="true" pos="0.50 -0.17 1.05">
+      <geom name="target_nut" type="cylinder" size="0.0075 0.004" rgba="0.86 0.70 0.30 1"/>
+      <geom name="target_nut_hole" type="cylinder" size="0.0034 0.0045" rgba="0.07 0.06 0.05 1"/>
+    </body>
+
+    <!-- COSMETIC parallel-jaw fingers (render-only, driven per-frame by grasp_movie.py
+         from the gripper body pose). The real magpie STL models the gripper as ONE
+         solid closed housing with no separate/movable fingers, so these two plates per
+         hand VISUALISE the parallel jaws opening + closing on the part. Visual only
+         (contype/conaffinity 0, no mass, no qpos) -- they change nothing physical. -->
+    <body name="jaw_r_a" mocap="true" pos="0 0 -5"><geom type="box" size="0.030 0.005 0.017" contype="0" conaffinity="0" group="1" rgba="0.34 0.35 0.39 1"/></body>
+    <body name="jaw_r_b" mocap="true" pos="0 0 -5"><geom type="box" size="0.030 0.005 0.017" contype="0" conaffinity="0" group="1" rgba="0.34 0.35 0.39 1"/></body>
+    <body name="jaw_l_a" mocap="true" pos="0 0 -5"><geom type="box" size="0.030 0.005 0.017" contype="0" conaffinity="0" group="1" rgba="0.34 0.35 0.39 1"/></body>
+    <body name="jaw_l_b" mocap="true" pos="0 0 -5"><geom type="box" size="0.030 0.005 0.017" contype="0" conaffinity="0" group="1" rgba="0.34 0.35 0.39 1"/></body>
+  </worldbody>
+</mujoco>
