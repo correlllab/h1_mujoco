@@ -1,12 +1,21 @@
 import mujoco
-import mujoco.viewer
 import numpy as np
+import time
 
 class MujocoEnv:
-    def __init__(self, xml_path):
+    def __init__(self, xml_path=None, *, model=None):
+        if (xml_path is None) == (model is None):
+            raise ValueError('Provide exactly one of xml_path or model')
+
         # initialize robot model
-        self.model = mujoco.MjModel.from_xml_path(xml_path)
+        if model is None:
+            model = mujoco.MjModel.from_xml_path(xml_path)
+            model.opt.timestep = 0.005
+        self.model = model
         self.data = mujoco.MjData(self.model)
+        mujoco.mj_forward(self.model, self.data)
+        self.viewer = None
+        self._next_viewer_sync = 0.0
 
         # initialize elastic band
         self.elastic_band = None
@@ -20,8 +29,16 @@ class MujocoEnv:
         self.force_enabled = False
 
         # set simulation parameters
-        self.model.opt.timestep = 0.005
         self.timestep = self.model.opt.timestep
+
+    def reset(self):
+        mujoco.mj_resetData(self.model, self.data)
+        if self.external_force is not None:
+            self.external_force.active = False
+            self.external_force.magnitude = 0.0
+            self.external_force.torque[:] = 0.0
+        self.paused = False
+        mujoco.mj_forward(self.model, self.data)
 
     def init_elastic_band(self, link_name='torso_link',
                           point=np.array([0, 0, 2.0]),
@@ -58,7 +75,12 @@ class MujocoEnv:
             print(f'Available wrist bodies: {available_bodies}')
 
     def key_callback(self, key):
-        glfw = mujoco.glfw.glfw
+        from mujoco.glfw import glfw
+
+        if key == glfw.KEY_R:
+            self.reset()
+            print('Simulation reset')
+            return
 
         # pause / resume simulation loop
         if key == glfw.KEY_P:
@@ -85,6 +107,8 @@ class MujocoEnv:
             self.data.xfrc_applied[self.band_attached_body_id, :3] += f
 
     def reset_geom_buffer(self):
+        if self.viewer is None:
+            return
         scn = self.viewer.user_scn
         scn.ngeom = 0
 
@@ -177,28 +201,38 @@ class MujocoEnv:
                 scn.ngeom += 1
 
     def launch_viewer(self):
+        import mujoco.viewer
+
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
-        # set camera position
-        self.viewer.cam.azimuth = 88.650
-        self.viewer.cam.distance = 5.269
-        self.viewer.cam.elevation = -29.7
-        self.viewer.cam.lookat = [0.001, -0.103, 0.623]
+        with self.viewer.lock():
+            self.viewer.cam.azimuth = 88.650
+            self.viewer.cam.distance = 5.269
+            self.viewer.cam.elevation = -29.7
+            self.viewer.cam.lookat = [0.001, -0.103, 0.623]
+        self._next_viewer_sync = 0.0
+        self.sync_viewer()
+
+    def sync_viewer(self):
+        # Keep GUI/overlay work at 60 Hz, independent of physics rate and resets.
+        if self.viewer is None or time.monotonic() < self._next_viewer_sync:
+            return
+        with self.viewer.lock():
+            self.reset_geom_buffer()
+            self.draw_elastic_band()
+            self.draw_external_force()
+        self.viewer.sync()
+        self._next_viewer_sync = time.monotonic() + 1.0 / 60.0
 
     def sim_step(self):
-        # evaluate elastic band
-        self.eval_elastic_band()
-        # evaluate external forces
-        self.eval_external_force()
-        # step the simulator
-        mujoco.mj_step(self.model, self.data)
-        # reset custom geometry buffer for visualization
-        self.reset_geom_buffer()
-        # draw elastic band
-        self.draw_elastic_band()
-        # draw external force
-        self.draw_external_force()
-        # sync user input
-        self.viewer.sync()
+        # Apply only this step's controller forces, preserving caller-owned forces.
+        applied_forces = self.data.xfrc_applied.copy()
+        try:
+            self.eval_elastic_band()
+            self.eval_external_force()
+            mujoco.mj_step(self.model, self.data)
+        finally:
+            self.data.xfrc_applied[:] = applied_forces
+        self.sync_viewer()
 
     def get_body_jacobian(self, body_id):
         '''
@@ -431,7 +465,7 @@ class EndEffectorForce:
         print('  + / - - Increase/decrease force magnitude')
         print('  Arrow Keys - Apply directional forces (←→ for Y, ↑↓ for X)')
         print('  Page Up/Down - Apply upward/downward force (Z axis)')
-        print('  R - Reset force to zero')
+        print('  R - Reset simulation and clear external force')
         print('  Numpad 4/6 - Apply roll torque')
         print('  Numpad 8/2 - Apply pitch torque')
         print('  Numpad 7/9 - Apply yaw torque')

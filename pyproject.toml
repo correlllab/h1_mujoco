@@ -12,6 +12,7 @@ dependencies = [
     "pygame>=2.6.1",
     "pyquaternion>=0.9.9",
     "pyvista>=0.47.1",
+    "pyyaml>=6.0.2",
     "robot-descriptions>=1.23.0",
     "scipy>=1.15.3",
     "tqdm>=4.67.3",
@@ -23,7 +24,14 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["mujoco_env"]
+py-modules = ["mujoco_env", "scene_builder"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "shapely>=2.1", "mapbox-earcut>=1.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.uv.workspace]
 members = [

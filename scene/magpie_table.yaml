@@ -1,0 +1,18 @@
+version: 1
+scene:
+  xml: mujoco_assets/manipulation_net/workcell.xml
+simulation:
+  timestep: 0.005
+table:
+  enabled: true
+  position: [0.65, 0.0, 0.0]
+  quaternion: [1.0, 0.0, 0.0, 0.0]
+  size: [0.80, 0.70]
+  height: 1.05
+  top_thickness: 0.04
+  leg_width: 0.05
+  leg_inset: 0.03
+  rgba: [0.55, 0.40, 0.28, 1.0]
+  friction: [0.8, 0.005, 0.0001]
+board:
+  enabled: false

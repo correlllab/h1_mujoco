@@ -1,0 +1,57 @@
+# Right-arm fixture calibrated from the live standing robot on 2026-11-03.
+# Read-only DDS measurement: pelvis world position (m)
+# [-0.074005682981, -0.027101960939, 0.955172239917] (tick 122542).
+# Ignore measured pelvis rotation: assume pelvis axes match global XYZ.
+# Seated cylinder_1 TOP relative to that origin: [0.45, -0.225, 0.053].
+# Table surface is level with the pelvis. Buried bottom tip is at Z = 0.003.
+# Cylinder top: 0.053 seated, 0.075 after a 22 mm extraction lift.
+# Easy box: X [0.40, 0.50], Y [-0.325, -0.125], Z [0.050, 0.225].
+# Gripper target RPY (deg): [0, 90, 60], NOT a board orientation.
+# The table/board are world-fixed, level, and do not follow a moving pelvis.
+version: 1
+scene:
+  xml: mujoco_assets/manipulation_net/workcell.xml
+simulation:
+  timestep: 0.001
+table:
+  enabled: true
+  position: [0.503832018731, -0.264630184906, 0.0]
+  quaternion: [1.0, 0.0, 0.0, 0.0]
+  # 20 mm of support beyond each edge of the 320 x 250 mm board.
+  size: [0.36, 0.29]
+  height: 0.955172239917
+  top_thickness: 0.04
+  leg_width: 0.05
+  leg_inset: 0.03
+  rgba: [0.55, 0.40, 0.28, 1.0]
+  friction: [0.8, 0.005, 0.0001]
+board:
+  enabled: true
+  catalog: mujoco_assets/manipulation_net/manipulation_catalog.json
+  collision: functional
+  # collision: detailed  # Also collide with cosmetic engraved recesses.
+  position_on_table: [0.0, 0.0, 0.0]
+  quaternion: [1.0, 0.0, 0.0, 0.0]
+  # Omitted insertion_depth means seated. Use 0.0 for the hole entry plane.
+  # The calibration targets cylinder_1; other holes have different positions.
+  pegs:
+    - {id: cylinder_1, shape: cylinder, size: 1, hole: cylinder_1}
+    # - {id: cylinder_0, shape: cylinder, size: 0, hole: cylinder_0}
+    # - {id: cylinder_2, shape: cylinder, size: 2, hole: cylinder_2}
+    # - {id: cylinder_3, shape: cylinder, size: 3, hole: cylinder_3}
+    # - {id: l_0, shape: l, size: 0, hole: l_0}
+    # - {id: l_1, shape: l, size: 1, hole: l_1}
+    # - {id: l_2, shape: l, size: 2, hole: l_2}
+    # - {id: l_3, shape: l, size: 3, hole: l_3}
+    # - {id: rectangle_0, shape: rectangle, size: 0, hole: rectangle_0}
+    # - {id: rectangle_1, shape: rectangle, size: 1, hole: rectangle_1}
+    # - {id: rectangle_2, shape: rectangle, size: 2, hole: rectangle_2}
+    # - {id: rectangle_3, shape: rectangle, size: 3, hole: rectangle_3}
+    # - {id: triangle_0, shape: triangle, size: 0, hole: triangle_0}
+    # - {id: triangle_1, shape: triangle, size: 1, hole: triangle_1}
+    # - {id: triangle_2, shape: triangle, size: 2, hole: triangle_2}
+    # - {id: triangle_3, shape: triangle, size: 3, hole: triangle_3}
+    # - {id: hex_0, shape: hex, size: 0, hole: hex_0}
+    # - {id: hex_1, shape: hex, size: 1, hole: hex_1}
+    # - {id: hex_2, shape: hex, size: 2, hole: hex_2}
+    # - {id: hex_3, shape: hex, size: 3, hole: hex_3}
